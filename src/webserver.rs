@@ -2,7 +2,6 @@ extern crate hyper;
 extern crate futures;
 // extern crate serde_json;
 extern crate regex;
-// extern crate ini;
 
 use self::futures::future::Future;
 use self::futures::Stream;
