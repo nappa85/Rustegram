@@ -1,20 +1,26 @@
 extern crate hyper;
+extern crate hyper_native_tls;
 extern crate multipart;
 extern crate ini;
 
 use std::collections::HashMap;
 use std::io::Read;
+use hyper::Client;
+use hyper::net::HttpsConnector;
+use hyper_native_tls::NativeTlsClient;
 use hyper::client::Request;
-use hyper::method::Method;
+use hyper::Url;
+// use hyper::method::Method;
 use hyper::net::Streaming;
 use hyper::Result;
-use multipart::client::Multipart;
+use multipart::client::lazy::Multipart;
 use ini::Ini;
 
-pub enum Param {
-    Value(String),
-    File(String),
+pub enum Param<'a> {
+    Value(&'a str),
+    File(&'a str),
     Flag(bool),
+    Parse(ParseMode),
     Markup(Keyboard),
 }
 
@@ -25,10 +31,10 @@ pub enum ParseMode {
 
 impl ToString for ParseMode {
     fn to_string(&self) -> String {
-		match *self {
-			ParseMode::Markdown => "Markdown".to_owned(),
-			ParseMode::HTML => "HTML".to_owned(),
-		}
+        match *self {
+            ParseMode::Markdown => "Markdown".to_owned(),
+            ParseMode::HTML => "HTML".to_owned(),
+        }
     }
 }
 
@@ -54,11 +60,11 @@ impl Telegram {
 
     pub fn send_message(&self, chat_id: &str, message: &str, reply_id: Option<&str>, force_reply: Option<bool>, preview: Option<bool>, parse_mode: Option<ParseMode>, keyboard: Option<Keyboard>) -> Result<String> {
         let mut params = HashMap::new();
-        params.insert("chat_id", Param::Value(chat_id.to_owned()));
-        params.insert("message", Param::Value(message.to_owned()));
+        params.insert("chat_id", Param::Value(chat_id));
+        params.insert("message", Param::Value(message));
 
         if !reply_id.is_none() {
-            params.insert("reply_id", Param::Value(reply_id.unwrap().to_owned()));
+            params.insert("reply_id", Param::Value(reply_id.unwrap()));
         }
 
         if force_reply == Some(true) {
@@ -70,7 +76,7 @@ impl Telegram {
         }
 
         if !parse_mode.is_none() {
-            params.insert("parse_mode", Param::Value(parse_mode.unwrap().to_string()));
+            params.insert("parse_mode", Param::Parse(parse_mode.unwrap()));
         }
 
         if !keyboard.is_none() {
@@ -81,15 +87,21 @@ impl Telegram {
     }
 
     fn call_telegram(&self, method: &str, params: HashMap<&str, Param>) -> Result<String> {
-        let uri = ("https://api.telegram.org/bot".to_owned() + self.config.get_from::<String>(None, "HTTP_TOKEN").expect("Can't find HTTP_TOKEN in your config") + "/" + method).parse().expect("Can't parse Telegram API address");
+        let uri:Url = ("https://api.telegram.org/bot".to_owned() + self.config.get_from::<String>(None, "HTTP_TOKEN").expect("Can't find HTTP_TOKEN in your config") + "/" + method).parse().expect("Can't parse Telegram API address");
 
-        let request = Request::new(Method::Post, uri)?;
+        //let request = Request::new(Method::Post, uri)?;
 
-        let mut multipart = Multipart::from_request(request)?;
+        //let mut multipart = Multipart::from_request(request)?;
+
+        let mut multipart = Multipart::new();
 
         Telegram::write_body(&mut multipart, params)?;
 
-        let mut response = multipart.send()?;
+        let ssl = NativeTlsClient::new().unwrap();
+        let connector = HttpsConnector::new(ssl);
+        let client = Client::with_connector(connector);
+
+        let mut response = multipart.client_request(&client, uri).expect("Error sending multipart request");
 
         let mut res = String::new();
         response.read_to_string(&mut res).expect("Failed to read response");
@@ -97,13 +109,14 @@ impl Telegram {
         Ok(res)
     }
 
-    fn write_body(multi: &mut Multipart<Request<Streaming>>, params: HashMap<&str, Param>) -> Result<()> {
+    fn write_body<'a>(multi: &mut Multipart<'a, 'a>, params: HashMap<&'a str, Param<'a>>) -> Result<()> {
         for (name, value) in &params {
             match value {
-                &Param::Value(ref s) => multi.write_text(name, s)?,
-                &Param::File(ref s) => multi.write_file(name, s)?,
-                &Param::Flag(b) => multi.write_file(name, if b { "true" } else { "false" })?,
-                &Param::Markup(ref k) => multi.write_file(name, k.to_string())?,
+                &Param::Value(s) => multi.add_text::<&'a str, &'a str>(name, s),
+                &Param::File(s) => multi.add_file::<&'a str, &'a str>(name, s),
+                &Param::Flag(b) => multi.add_text::<&'a str, &'a str>(name, if b { "true" } else { "false" }),
+                &Param::Parse(ref p) => multi.add_text::<&'a str, String>(name, p.to_string()),
+                &Param::Markup(ref k) => multi.add_text::<&'a str, String>(name, k.to_string()),
             };
         }
 
@@ -122,9 +135,7 @@ mod tests {
 
         let client = Telegram::new(conf);
         let res = client.send_message("123", "prova", None, None, None, None, None);
-        
-        println!("response: {}", res.unwrap());
 
-        assert_eq!(2 + 2, 4);
+        assert_eq!("{\"ok\":false,\"error_code\":404,\"description\":\"Not Found\"}", res.unwrap());
     }
 }
