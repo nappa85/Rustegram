@@ -4,7 +4,5 @@ version = "0.1.0"
 authors = ["Marco Napetti <marco.napetti@pixartprinting.com>"]
 
 [dependencies]
-hyper = { version = ">=0.9, <0.11" } #as asked by multipart
-hyper-native-tls = "0.2.4"
-multipart = "0.13.6"
+reqwest = "0.8.4"
 rust-ini = "0.9"

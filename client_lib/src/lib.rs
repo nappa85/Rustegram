@@ -1,19 +1,10 @@
-extern crate hyper;
-extern crate hyper_native_tls;
-extern crate multipart;
+extern crate reqwest;
 extern crate ini;
 
 use std::collections::HashMap;
 use std::io::Read;
-use hyper::Client;
-use hyper::net::HttpsConnector;
-use hyper_native_tls::NativeTlsClient;
-use hyper::client::Request;
-use hyper::Url;
-// use hyper::method::Method;
-use hyper::net::Streaming;
-use hyper::Result;
-use multipart::client::lazy::Multipart;
+use reqwest::multipart::Form;
+use reqwest::Result;
 use ini::Ini;
 
 pub enum Param<'a> {
@@ -87,40 +78,39 @@ impl Telegram {
     }
 
     fn call_telegram(&self, method: &str, params: HashMap<&str, Param>) -> Result<String> {
-        let uri:Url = ("https://api.telegram.org/bot".to_owned() + self.config.get_from::<String>(None, "HTTP_TOKEN").expect("Can't find HTTP_TOKEN in your config") + "/" + method).parse().expect("Can't parse Telegram API address");
+        let client = reqwest::Client::new();
+        let url = "https://api.telegram.org/bot".to_owned() + self.config.get_from::<String>(None, "HTTP_TOKEN").expect("Can't find HTTP_TOKEN in your config") + "/" + method;
+        let response = client.post(&url)
+            .multipart(Telegram::write_body(params))
+            .send()?;
 
-        //let request = Request::new(Method::Post, uri)?;
-
-        //let mut multipart = Multipart::from_request(request)?;
-
-        let mut multipart = Multipart::new();
-
-        Telegram::write_body(&mut multipart, params)?;
-
-        let ssl = NativeTlsClient::new().unwrap();
-        let connector = HttpsConnector::new(ssl);
-        let client = Client::with_connector(connector);
-
-        let mut response = multipart.client_request(&client, uri).expect("Error sending multipart request");
-
-        let mut res = String::new();
-        response.read_to_string(&mut res).expect("Failed to read response");
-
-        Ok(res)
+        response.text()
     }
 
-    fn write_body<'a>(multi: &mut Multipart<'a, 'a>, params: HashMap<&'a str, Param<'a>>) -> Result<()> {
+    fn write_body<'a>(params: HashMap<&'a str, Param<'a>>) -> Form {
+        let form = Form::new();
+
         for (name, value) in &params {
             match value {
-                &Param::Value(s) => multi.add_text::<&'a str, &'a str>(name, s),
-                &Param::File(s) => multi.add_file::<&'a str, &'a str>(name, s),
-                &Param::Flag(b) => multi.add_text::<&'a str, &'a str>(name, if b { "true" } else { "false" }),
-                &Param::Parse(ref p) => multi.add_text::<&'a str, String>(name, p.to_string()),
-                &Param::Markup(ref k) => multi.add_text::<&'a str, String>(name, k.to_string()),
+                &Param::Value(s) => {
+                    form.text::<&'a str, &'a str>(name, s);
+                },
+                &Param::File(s) => {
+                    form.file::<&'a str, &'a str>(name, s).unwrap();
+                },
+                &Param::Flag(b) => {
+                    form.text::<&'a str, &'a str>(name, if b { "true" } else { "false" });
+                },
+                &Param::Parse(ref p) => {
+                    form.text::<&'a str, String>(name, p.to_string());
+                },
+                &Param::Markup(ref k) => {
+                    form.text::<&'a str, String>(name, k.to_string());
+                },
             };
         }
 
-        Ok(())
+        form
     }
 }
 
