@@ -7,9 +7,9 @@ use reqwest::multipart::Form;
 use reqwest::Result;
 use ini::Ini;
 
-pub enum Param<'a> {
-    Value(&'a str),
-    File(&'a str),
+pub enum Param {
+    Value(String),
+    File(String),
     Flag(bool),
     Parse(ParseMode),
     Markup(Keyboard),
@@ -51,11 +51,11 @@ impl Telegram {
 
     pub fn send_message(&self, chat_id: &str, message: &str, reply_id: Option<&str>, force_reply: Option<bool>, preview: Option<bool>, parse_mode: Option<ParseMode>, keyboard: Option<Keyboard>) -> Result<String> {
         let mut params = HashMap::new();
-        params.insert("chat_id", Param::Value(chat_id));
-        params.insert("message", Param::Value(message));
+        params.insert("chat_id", Param::Value(chat_id.to_owned()));
+        params.insert("message", Param::Value(message.to_owned()));
 
         if !reply_id.is_none() {
-            params.insert("reply_id", Param::Value(reply_id.unwrap()));
+            params.insert("reply_id", Param::Value(reply_id.unwrap().to_owned()));
         }
 
         if force_reply == Some(true) {
@@ -80,7 +80,7 @@ impl Telegram {
     fn call_telegram(&self, method: &str, params: HashMap<&str, Param>) -> Result<String> {
         let client = reqwest::Client::new();
         let url = "https://api.telegram.org/bot".to_owned() + self.config.get_from::<String>(None, "HTTP_TOKEN").expect("Can't find HTTP_TOKEN in your config") + "/" + method;
-        let response = client.post(&url)
+        let mut response = client.post(&url)
             .multipart(Telegram::write_body(params))
             .send()?;
 
@@ -88,15 +88,15 @@ impl Telegram {
     }
 
     fn write_body(params: HashMap<&str, Param>) -> Form {
-        let form = Form::new();
+        let mut form = Form::new();
 
-        for (name, value) in &params {
-            match value {
-                &Param::Value(s) => form.text::<&str, &str>(name, s),
-                &Param::File(s) => form.file::<&str, &str>(name, s).unwrap(),
-                &Param::Flag(b) => form.text::<&str, &str>(name, if b { "true" } else { "false" }),
-                &Param::Parse(ref p) => form.text::<&str, String>(name, p.to_string()),
-                &Param::Markup(ref k) => form.text::<&str, String>(name, k.to_string()),
+        for (name, value) in params {
+            form = match value {
+                Param::Value(s) => form.text::<String, String>(name.to_owned(), s.to_owned()),
+                Param::File(s) => form.file::<String, String>(name.to_owned(), s.to_owned()).unwrap(),
+                Param::Flag(b) => form.text::<String, String>(name.to_owned(), (if b { "true" } else { "false" }).to_owned()),
+                Param::Parse(ref p) => form.text::<String, String>(name.to_owned(), p.to_string()),
+                Param::Markup(ref k) => form.text::<String, String>(name.to_owned(), k.to_string()),
             };
         }
 
