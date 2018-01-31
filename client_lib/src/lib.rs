@@ -87,26 +87,16 @@ impl Telegram {
         response.text()
     }
 
-    fn write_body<'a>(params: HashMap<&'a str, Param<'a>>) -> Form {
+    fn write_body(params: HashMap<&str, Param>) -> Form {
         let form = Form::new();
 
         for (name, value) in &params {
             match value {
-                &Param::Value(s) => {
-                    form.text::<&'a str, &'a str>(name, s);
-                },
-                &Param::File(s) => {
-                    form.file::<&'a str, &'a str>(name, s).unwrap();
-                },
-                &Param::Flag(b) => {
-                    form.text::<&'a str, &'a str>(name, if b { "true" } else { "false" });
-                },
-                &Param::Parse(ref p) => {
-                    form.text::<&'a str, String>(name, p.to_string());
-                },
-                &Param::Markup(ref k) => {
-                    form.text::<&'a str, String>(name, k.to_string());
-                },
+                &Param::Value(s) => form.text::<&str, &str>(name, s),
+                &Param::File(s) => form.file::<&str, &str>(name, s).unwrap(),
+                &Param::Flag(b) => form.text::<&str, &str>(name, if b { "true" } else { "false" }),
+                &Param::Parse(ref p) => form.text::<&str, String>(name, p.to_string()),
+                &Param::Markup(ref k) => form.text::<&str, String>(name, k.to_string()),
             };
         }
 
