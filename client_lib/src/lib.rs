@@ -7,9 +7,9 @@ use reqwest::multipart::Form;
 use reqwest::Result;
 use ini::Ini;
 
-pub enum Param {
-    Value(String),
-    File(String),
+pub enum Param<'a> {
+    Value(&'a str),
+    File(&'a str),
     Flag(bool),
     Parse(ParseMode),
     Markup(Keyboard),
@@ -36,7 +36,7 @@ pub struct Keyboard {
 
 impl ToString for Keyboard {
     fn to_string(&self) -> String {
-        "TODO: implement this".to_owned()
+        "{\"force_reply\":".to_owned() + (if self.force_reply { "true" } else { "false" }) + ",\"selective\":" + (if self.force_reply { "true" } else { "false" }) + "}"
     }
 }
 
@@ -51,11 +51,11 @@ impl Telegram {
 
     pub fn send_message(&self, chat_id: &str, message: &str, reply_id: Option<&str>, force_reply: Option<bool>, preview: Option<bool>, parse_mode: Option<ParseMode>, keyboard: Option<Keyboard>) -> Result<String> {
         let mut params = HashMap::new();
-        params.insert("chat_id", Param::Value(chat_id.to_owned()));
-        params.insert("message", Param::Value(message.to_owned()));
+        params.insert("chat_id", Param::Value(chat_id));
+        params.insert("message", Param::Value(message));
 
         if !reply_id.is_none() {
-            params.insert("reply_id", Param::Value(reply_id.unwrap().to_owned()));
+            params.insert("reply_id", Param::Value(reply_id.unwrap()));
         }
 
         if force_reply == Some(true) {
