@@ -1,10 +1,12 @@
 extern crate reqwest;
+extern crate serde_json;
 extern crate ini;
 
 use std::collections::HashMap;
 use std::io::Read;
 use reqwest::multipart::Form;
-use reqwest::Result;
+use reqwest::{Client, Result};
+use serde_json::value::Value;
 use ini::Ini;
 
 pub enum Param<'a> {
@@ -42,14 +44,18 @@ impl ToString for Keyboard {
 
 pub struct Telegram {
     config: Ini,
+    client: Client,
 }
 
 impl Telegram {
     pub fn new(cnf: Ini) -> Telegram {
-        Telegram { config: cnf }
+        Telegram {
+            config: cnf,
+            client: Client::new(),
+        }
     }
 
-    pub fn send_message(&self, chat_id: &str, message: &str, reply_id: Option<&str>, force_reply: Option<bool>, preview: Option<bool>, parse_mode: Option<ParseMode>, keyboard: Option<Keyboard>) -> Result<String> {
+    pub fn send_message(&self, chat_id: &str, message: &str, reply_id: Option<&str>, force_reply: Option<bool>, preview: Option<bool>, parse_mode: Option<ParseMode>, keyboard: Option<Keyboard>) -> Result<Value> {
         let mut params = HashMap::new();
         params.insert("chat_id", Param::Value(chat_id));
         params.insert("message", Param::Value(message));
@@ -77,14 +83,25 @@ impl Telegram {
         self.call_telegram("sendMessage", params)
     }
 
-    fn call_telegram(&self, method: &str, params: HashMap<&str, Param>) -> Result<String> {
-        let client = reqwest::Client::new();
+    pub fn get_file(&self, file_id: &str) -> Result<String> {
+        let mut params = HashMap::new();
+        params.insert("file_id", Param::Value(file_id));
+
+        let res = self.call_telegram("getFile", params)?;
+
+        let url = "https://api.telegram.org/bot".to_owned() + self.config.get_from::<String>(None, "HTTP_TOKEN").expect("Can't find HTTP_TOKEN in your config") + "/" + res["result"]["file_path"].as_str().unwrap();
+        let mut file = self.client.get(&url).send()?;
+
+        file.text()
+    }
+
+    fn call_telegram(&self, method: &str, params: HashMap<&str, Param>) -> Result<Value> {
         let url = "https://api.telegram.org/bot".to_owned() + self.config.get_from::<String>(None, "HTTP_TOKEN").expect("Can't find HTTP_TOKEN in your config") + "/" + method;
-        let mut response = client.post(&url)
+        let mut response = self.client.post(&url)
             .multipart(Telegram::write_body(params))
             .send()?;
 
-        response.text()
+        response.json()
     }
 
     fn write_body(params: HashMap<&str, Param>) -> Form {
@@ -106,7 +123,7 @@ impl Telegram {
 
 #[cfg(test)]
 mod tests {
-    use super::{Ini, Telegram};
+    use super::{Ini, Telegram, serde_json};
 
     #[test]
     fn it_works() {
@@ -116,6 +133,6 @@ mod tests {
         let client = Telegram::new(conf);
         let res = client.send_message("123", "prova", None, None, None, None, None);
 
-        assert_eq!("{\"ok\":false,\"error_code\":404,\"description\":\"Not Found\"}", res.unwrap());
+        assert_eq!(serde_json::from_str::<serde_json::value::Value>("{\"ok\":false,\"error_code\":404,\"description\":\"Not Found\"}").unwrap(), res.unwrap());
     }
 }
