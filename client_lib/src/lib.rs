@@ -115,9 +115,7 @@ impl Telegram {
         params.insert("chat_id", Param::Value(chat_id));
         params.insert("message_id", Param::Value(message_id));
 
-        let res = self.call_telegram("deleteMessage", params)?;
-
-        res.json()
+        self.call_telegram("deleteMessage", params)
     }
 
     pub fn get_file(&self, file_id: &str) -> Result<String> {
@@ -153,9 +151,7 @@ impl Telegram {
             params.insert("disable_web_page_preview", Param::Flag(true));
         }
 
-        let res = self.call_telegram("sendPhoto", params)?;
-
-        file.json()
+        self.call_telegram("sendPhoto", params)
     }
 
     pub fn send_audio(&self, chat_id: &str, audio: &str, duration: Option<&str>, performer: Option<&str>, title: Option<&str>, reply_id: Option<&str>, force_reply: Option<bool>) -> Result<Value> {
@@ -183,9 +179,7 @@ impl Telegram {
             params.insert("reply_markup", Param::Markup(Keyboard { force_reply: true, selective: true }));
         }
 
-        let res = self.call_telegram("sendAudio", params)?;
-
-        file.json()
+        self.call_telegram("sendAudio", params)
     }
 
     pub fn send_voice(&self, chat_id: &str, voice: &str, duration: Option<&str>, reply_id: Option<&str>, force_reply: Option<bool>) -> Result<Value> {
@@ -205,9 +199,7 @@ impl Telegram {
             params.insert("reply_markup", Param::Markup(Keyboard { force_reply: true, selective: true }));
         }
 
-        let res = self.call_telegram("sendVoice", params)?;
-
-        file.json()
+        self.call_telegram("sendVoice", params)
     }
 
     pub fn send_document(&self, chat_id: &str, document: &str, reply_id: Option<&str>, force_reply: Option<bool>) -> Result<Value> {
@@ -223,9 +215,7 @@ impl Telegram {
             params.insert("reply_markup", Param::Markup(Keyboard { force_reply: true, selective: true }));
         }
 
-        let res = self.call_telegram("sendDocument", params)?;
-
-        file.json()
+        self.call_telegram("sendDocument", params)
     }
 
     pub fn send_chat_action(&self, chat_id: &str, action: ChatAction) -> Result<Value> {
@@ -233,9 +223,7 @@ impl Telegram {
         params.insert("chat_id", Param::Value(chat_id));
         params.insert("action", Param::Action(action));
 
-        let res = self.call_telegram("sendChatAction", params)?;
-
-        file.json()
+        self.call_telegram("sendChatAction", params)
     }
 
     fn call_telegram(&self, method: &str, params: HashMap<&str, Param>) -> Result<Value> {
