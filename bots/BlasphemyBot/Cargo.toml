@@ -1,0 +1,9 @@
+[package]
+name = "blasphemy_bot"
+version = "0.1.0"
+authors = ["Marco Napetti <marco.napetti@pixartprinting.com>"]
+
+[dependencies]
+client_lib = { path = "../../client_lib" }
+toml = "0.4"
+serde_json = "1.0"
