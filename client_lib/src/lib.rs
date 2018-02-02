@@ -85,7 +85,7 @@ impl Telegram {
         params.insert("message", Param::Value(message));
 
         if !reply_id.is_none() {
-            params.insert("reply_to_message_id", Param::Value(reply_id.unwrap()));
+            params.insert("reply_to_message_id", Param::Value(reply_id.expect("Unable to retrieve reply_id")));
         }
 
         if force_reply == Some(true) {
@@ -97,11 +97,11 @@ impl Telegram {
         }
 
         if !parse_mode.is_none() {
-            params.insert("parse_mode", Param::Parse(parse_mode.unwrap()));
+            params.insert("parse_mode", Param::Parse(parse_mode.expect("Unable to retrieve parse_mode")));
         }
 
         if !keyboard.is_none() {
-            params.insert("reply_markup", Param::Markup(keyboard.unwrap()));
+            params.insert("reply_markup", Param::Markup(keyboard.expect("Unable to retrieve keyboard")));
         }
 
         self.call_telegram("sendMessage", params)
@@ -121,7 +121,7 @@ impl Telegram {
 
         let res = self.call_telegram("getFile", params)?;
 
-        let url = format!("https://api.telegram.org/bot{}/{}", self.http_token, res["result"]["file_path"].as_str().unwrap());
+        let url = format!("https://api.telegram.org/bot{}/{}", self.http_token, res["result"]["file_path"].as_str().expect("Unable to retrieve file_path"));
         let mut file = self.client.get(&url).send()?;
 
         file.text()
@@ -133,11 +133,11 @@ impl Telegram {
         params.insert("photo", Param::File(photo));
 
         if !caption.is_none() {
-            params.insert("caption", Param::Value(caption.unwrap()));
+            params.insert("caption", Param::Value(caption.expect("Unable to retrieve caption")));
         }
 
         if !reply_id.is_none() {
-            params.insert("reply_to_message_id", Param::Value(reply_id.unwrap()));
+            params.insert("reply_to_message_id", Param::Value(reply_id.expect("Unable to retrieve reply_id")));
         }
 
         if force_reply == Some(true) {
@@ -157,19 +157,19 @@ impl Telegram {
         params.insert("audio", Param::File(audio));
 
         if !duration.is_none() {
-            params.insert("duration", Param::Value(duration.unwrap()));
+            params.insert("duration", Param::Value(duration.expect("Unable to retrieve duration")));
         }
 
         if !performer.is_none() {
-            params.insert("performer", Param::Value(performer.unwrap()));
+            params.insert("performer", Param::Value(performer.expect("Unable to retrieve performer")));
         }
 
         if !title.is_none() {
-            params.insert("title", Param::Value(title.unwrap()));
+            params.insert("title", Param::Value(title.expect("Unable to retrieve title")));
         }
 
         if !reply_id.is_none() {
-            params.insert("reply_to_message_id", Param::Value(reply_id.unwrap()));
+            params.insert("reply_to_message_id", Param::Value(reply_id.expect("Unable to retrieve reply_id")));
         }
 
         if force_reply == Some(true) {
@@ -185,11 +185,11 @@ impl Telegram {
         params.insert("voice", Param::File(voice));
 
         if !duration.is_none() {
-            params.insert("duration", Param::Value(duration.unwrap()));
+            params.insert("duration", Param::Value(duration.expect("Unable to retrieve duration")));
         }
 
         if !reply_id.is_none() {
-            params.insert("reply_to_message_id", Param::Value(reply_id.unwrap()));
+            params.insert("reply_to_message_id", Param::Value(reply_id.expect("Unable to retrieve reply_id")));
         }
 
         if force_reply == Some(true) {
@@ -205,7 +205,7 @@ impl Telegram {
         params.insert("document", Param::File(document));
 
         if !reply_id.is_none() {
-            params.insert("reply_to_message_id", Param::Value(reply_id.unwrap()));
+            params.insert("reply_to_message_id", Param::Value(reply_id.expect("Unable to retrieve reply_id")));
         }
 
         if force_reply == Some(true) {
@@ -238,7 +238,7 @@ impl Telegram {
         for (name, value) in params {
             form = match value {
                 Param::Value(s) => form.text::<String, String>(name.to_owned(), s.to_owned()),
-                Param::File(s) => form.file::<String, String>(name.to_owned(), s.to_owned()).unwrap(),
+                Param::File(s) => form.file::<String, String>(name.to_owned(), s.to_owned()).expect("Unable to add file to request"),
                 Param::Flag(b) => form.text::<String, String>(name.to_owned(), (if b { "true" } else { "false" }).to_owned()),
                 Param::Parse(ref p) => form.text::<String, String>(name.to_owned(), p.to_string()),
                 Param::Markup(ref k) => form.text::<String, String>(name.to_owned(), k.to_string()),
