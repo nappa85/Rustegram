@@ -1,5 +1,6 @@
 extern crate reqwest;
 extern crate serde_json;
+extern crate toml;
 
 use std::collections::HashMap;
 use reqwest::multipart::Form;
@@ -72,7 +73,15 @@ pub struct Telegram {
 }
 
 impl Telegram {
-    pub fn new(token: &str) -> Telegram {
+    pub fn init_bot<B: Bot, F>(constructor: F, secret: &str, config: toml::Value) -> B
+        where F: Fn(Telegram, toml::Value) -> B
+    {
+        assert!(secret == config["SECRET"].as_str().expect("Error interpreting SECRET config value"), "Secret mismatch");
+
+        constructor(Telegram::new(config["HTTP_TOKEN"].as_str().expect("Error interpreting HTTP_TOKEN config value")), config)
+    }
+
+    fn new(token: &str) -> Telegram {
         Telegram {
             http_token: token.to_owned(),
             client: Client::new(),
@@ -248,6 +257,12 @@ impl Telegram {
 
         form
     }
+}
+
+pub trait Bot {
+    fn new(api: Telegram, cfg: toml::Value) -> Self;
+
+    fn parse(&self, json: Value) -> std::result::Result<Value, String>;
 }
 
 #[cfg(test)]

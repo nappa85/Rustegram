@@ -6,3 +6,4 @@ authors = ["Marco Napetti <marco.napetti@pixartprinting.com>"]
 [dependencies]
 reqwest = "0.8.4"
 serde_json = "1.0"
+toml = "0.4"
