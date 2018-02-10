@@ -7,8 +7,7 @@ use client_lib::{Bot, Telegram};
 use std::env;
 use std::fs::File;
 use std::io::Read;
-use std::collections::HashMap;
-use std::boxed::Box;
+use std::path::Path;
 
 use serde_json::value::Value;
 
@@ -25,40 +24,36 @@ impl Bot for BlaspemyBot {
         }
     }
 
-    fn parse(&self, json: Value) -> Result<Value, String> {
-        Err(String::from("TODO"))
+    fn dispatch(&self, method: &str, json: Value) -> Result<Value, String> {
+        match method {
+            "about" => self.about(json),
+            "help" => self.help(json),
+            "swear" => self.swear(json),
+            "swearto" => self.swearto(json),
+            "blackhumor" => self.blackhumor(json),
+            _ => Err(format!("Method {} not found", method)),
+        }
     }
 }
 
 impl BlaspemyBot {
-    fn dispatch(&self, method: &str) -> Result<Value, String> {
-        match method {
-            "about" => self.about(),
-            "help" => self.help(),
-            "swear" => self.swear(),
-            "swearto" => self.swearto(),
-            "blackhumor" => self.blackhumor(),
-            _ => Err(format!("Method {} not found", method)),
-        }
-    }
-
-    fn about(&self) -> Result<Value, String> {
+    fn about(&self, json: Value) -> Result<Value, String> {
         Err(String::from("TODO"))
     }
 
-    fn help(&self) -> Result<Value, String> {
+    fn help(&self, json: Value) -> Result<Value, String> {
         Err(String::from("TODO"))
     }
 
-    fn swear(&self) -> Result<Value, String> {
+    fn swear(&self, json: Value) -> Result<Value, String> {
         Err(String::from("TODO"))
     }
 
-    fn swearto(&self) -> Result<Value, String> {
+    fn swearto(&self, json: Value) -> Result<Value, String> {
         Err(String::from("TODO"))
     }
 
-    fn blackhumor(&self) -> Result<Value, String> {
+    fn blackhumor(&self, json: Value) -> Result<Value, String> {
         Err(String::from("TODO"))
     }
 }
@@ -67,7 +62,8 @@ fn main() {
     let args:Vec<String> = env::args().collect();
     assert!(args.len() == 3, format!("Usage: {} <security_token> <json_request>", args.get(0).expect("Cannot find executable name")));
 
-    let config_file = format!("{}.toml", args.get(0).expect("Cannot find executable name"));
+    let path = Path::new(args.get(0).expect("Cannot find executable path"));
+    let config_file = format!("{}.toml", path.file_stem().expect("Cannot find executable name").to_str().expect("Cannot parse executable name"));
     let mut toml = File::open(&config_file).expect(&format!("File {} not found", config_file));
     let mut s = String::new();
     toml.read_to_string(&mut s).expect("Unable to read Toml file");

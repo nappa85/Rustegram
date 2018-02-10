@@ -262,7 +262,11 @@ impl Telegram {
 pub trait Bot {
     fn new(api: Telegram, cfg: toml::Value) -> Self;
 
-    fn parse(&self, json: Value) -> std::result::Result<Value, String>;
+    fn parse(&self, json: Value) -> std::result::Result<Value, String> {
+        Err(String::from("TODO"))
+    }
+
+    fn dispatch(&self, method: &str, json: Value) -> std::result::Result<Value, String>;
 }
 
 #[cfg(test)]

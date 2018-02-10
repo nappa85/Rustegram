@@ -11,6 +11,7 @@ mod webserver;
 use std::env;
 use std::fs::File;
 use std::io::Read;
+use std::path::Path;
 
 use hyper::server::Http;
 use native_tls::{TlsAcceptor, Pkcs12};
@@ -23,7 +24,13 @@ use webserver::WebServer as WebServer;
 fn main() {
     let args:Vec<String> = env::args().collect();
 
-    let config_file = if args.len() > 1 { args.get(1).expect("Cannot retrieve config path").to_owned() } else { format!("{}.toml", args.get(0).expect("Cannot find executable name")) };
+    let config_file = if args.len() > 1 {
+        args.get(1).expect("Cannot retrieve config path").to_owned()
+    }
+    else {
+        let path = Path::new(args.get(0).expect("Cannot find executable path"));
+        format!("{}.toml", path.file_stem().expect("Cannot find executable name").to_str().expect("Cannot parse executable name"))
+    };
     let mut toml = File::open(&config_file).expect(&format!("File {} not found", config_file));
     let mut s = String::new();
     toml.read_to_string(&mut s).expect("Unable to read Toml file");
