@@ -1,7 +1,7 @@
 [package]
 name = "blasphemy_bot"
 version = "0.1.0"
-authors = ["Marco Napetti <marco.napetti@pixartprinting.com>"]
+authors = ["Marco Napetti <marco.napetti@gmail.com>"]
 
 [dependencies]
 client_lib = { path = "../../client_lib" }

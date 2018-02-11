@@ -58,16 +58,10 @@ impl BlaspemyBot {
     }
 }
 
-fn main() {
-    let args:Vec<String> = env::args().collect();
-    assert!(args.len() == 3, format!("Usage: {} <security_token> <json_request>", args.get(0).expect("Cannot find executable name")));
-
-    let path = Path::new(args.get(0).expect("Cannot find executable path"));
-    let config_file = format!("{}.toml", path.file_stem().expect("Cannot find executable name").to_str().expect("Cannot parse executable name"));
-    let mut toml = File::open(&config_file).expect(&format!("File {} not found", config_file));
-    let mut s = String::new();
-    toml.read_to_string(&mut s).expect("Unable to read Toml file");
-
-    let bot = Telegram::init_bot(BlaspemyBot::new, args.get(1).expect("Cannot retrieve security token"), toml::from_str(&s).expect("Syntax error on Tolm file"));
-    bot.parse(serde_json::from_str(args.get(2).expect("Cannot retrieve json request")).expect("Syntax error on json request")).expect("Error parsing request");
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn it_works() {
+        assert_eq!(2 + 2, 4);
+    }
 }

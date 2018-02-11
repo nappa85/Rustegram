@@ -1,7 +1,7 @@
 [package]
 name = "rustegram"
 version = "0.1.0"
-authors = ["Marco Napetti <marco.napetti@pixartprinting.com>"]
+authors = ["Marco Napetti <marco.napetti@gmail.com>"]
 
 [dependencies]
 futures = "0.1.11"
@@ -12,3 +12,4 @@ tokio-proto = "0.1"
 regex = "0.2"
 lazy_static = "1.0.0"
 toml = "0.4"
+dynamic_reload = "0.3.0"

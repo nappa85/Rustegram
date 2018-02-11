@@ -1,7 +1,7 @@
-HTTP_TOKEN = "<insert bot token here>"
-SECRET = "<a string to insert inside webhook to increase transmissions security>"
-BOT_NAME = "<bot's nickname>"
-DEVELOPER_CHAT_ID = "<your personal chat id, to receive suggestions>"
+HTTP_TOKEN = "120044148:AAHn1VNjLrpeE32kjcT2XfdT20nKuT6XAU4"
+SECRET = "1016109_279464838861338_403274406"
+BOT_NAME = "BlasphemyBot"
+DEVELOPER_CHAT_ID = "25900594"
 
 [WordsA]
 0 = "Holy mother of "
