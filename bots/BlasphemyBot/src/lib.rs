@@ -58,7 +58,7 @@ impl BlaspemyBot {
 
 #[no_mangle]
 pub extern fn init_bot(secret: &str, body: String) -> Result<Value, String> {
-    let config_file = "config/BlaspemyBot.toml";
+    let config_file = "config/BlasphemyBot.toml";
     match File::open(config_file) {
         Ok(mut toml) => {
             let mut s = String::new();
@@ -66,10 +66,12 @@ pub extern fn init_bot(secret: &str, body: String) -> Result<Value, String> {
                 Ok(_) => {
                     match toml::from_str(&s) {
                         Ok(config) => {
-                            let bot = Telegram::init_bot(BlaspemyBot::new, secret, config);
-                            match serde_json::from_str(&body) {
-                                Ok(value) => bot.parse(value),
-                                Err(e) => Err(format!("Syntax error on json request: {}", e)),
+                            match Telegram::init_bot(BlaspemyBot::new, secret, config) {
+                                Ok(bot) => match serde_json::from_str(&body) {
+                                    Ok(value) => bot.parse(value),
+                                    Err(e) => Err(format!("Syntax error on json request: {}", e)),
+                                },
+                                Err(e) => Err(format!("Error during bot init: {}", e)),
                             }
                         },
                         Err(e) => Err(format!("Syntax error on Toml file: {}", e)),

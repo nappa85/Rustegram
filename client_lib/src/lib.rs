@@ -73,12 +73,23 @@ pub struct Telegram {
 }
 
 impl Telegram {
-    pub fn init_bot<B: Bot, F>(constructor: F, secret: &str, config: toml::Value) -> B
+    pub fn init_bot<B: Bot, F>(constructor: F, secret: &str, config: toml::Value) -> std::result::Result<B, String>
         where F: Fn(Telegram, toml::Value) -> B
     {
-        assert!(secret == config["SECRET"].as_str().expect("Error interpreting SECRET config value"), "Secret mismatch");
-
-        constructor(Telegram::new(config["HTTP_TOKEN"].as_str().expect("Error interpreting HTTP_TOKEN config value")), config)
+        match config["SECRET"].as_str() {
+            Some(conf_secret) => {
+                if secret == conf_secret {
+                    match config["HTTP_TOKEN"].as_str() {
+                        Some(token) => Ok(constructor(Telegram::new(token), config)),
+                        None => Err(String::from("Error interpreting HTTP_TOKEN config value")),
+                    }
+                }
+                else {
+                    Err(String::from("Secret mismatch"))
+                }
+            },
+            None => Err(String::from("Error interpreting SECRET config value")),
+        }
     }
 
     fn new(token: &str) -> Telegram {
