@@ -1,24 +1,29 @@
 extern crate dynamic_reload;
+extern crate serde_json;
 
 use std::collections::HashMap;
 use std::sync::Arc;
 
 use self::dynamic_reload::{DynamicReload, Error, Search, Lib, UpdateState, Symbol, PlatformName};
 
+use self::serde_json::value::Value;
+
 struct Plugin {
+    name: String,
     callable: bool,
     lib: Arc<Lib>,
-//     fun: Symbol<'a, extern "C" fn(secret: &str, body: String) -> Result<String, String>>,
+//     fun: Symbol<'a, extern "C" fn(secret: &str, body: String) -> Result<Value, String>>,
 }
 
 impl Plugin {
-    pub fn new(plug: &Arc<Lib>) -> Plugin {
+    pub fn new(name: String, plug: &Arc<Lib>) -> Plugin {
         let temp = plug.clone();
         Plugin {
+            name: name,
             callable: true,
             lib: temp,
 //             fun: unsafe {
-//                 temp.lib.get(b"init_bot\0").unwrap()
+//                 temp.lib.get(b"init_bot\0").expect(&format!("Error getting Symbol for {}", name))
 //             }
         }
     }
@@ -29,9 +34,9 @@ impl Plugin {
                 self.callable = false;
             },
             UpdateState::After => {
-                self.lib = plug.unwrap().clone();
+                self.lib = plug.expect(&format!("Symbol updated to None for {}", self.name)).clone();
 //                 self.fun = unsafe {
-//                     self.lib.lib.get(b"init_bot\0").unwrap()
+//                     self.lib.lib.get(b"init_bot\0").expect(&format!("Error updating Symbol for {}", name))
 //                 };
                 self.callable = true;
             },
@@ -39,12 +44,12 @@ impl Plugin {
         }
     }
 
-    pub fn run(&self, secret: &str, body: String) -> Result<String, String> {
+    pub fn run(&self, secret: &str, body: String) -> Result<Value, String> {
 //         let f = self.fun;
         // In a real program you want to cache the symbol and not do it every time if your
         // application is performance critical
-        let f: Symbol<extern "C" fn(secret: &str, body: String) -> Result<String, String>> = unsafe {
-            self.lib.lib.get(b"init_bot\0").unwrap()
+        let f: Symbol<extern "C" fn(secret: &str, body: String) -> Result<Value, String>> = unsafe {
+            self.lib.lib.get(b"init_bot\0").expect(&format!("Error getting Symbol for {}", self.name))
         };
         f(secret, body)
     }
@@ -52,7 +57,7 @@ impl Plugin {
 
 pub struct PluginRegistry {
     handler: DynamicReload<'static>,
-    libs: HashMap<&'static str, Plugin>,
+    libs: HashMap<String, Plugin>,
 }
 
 impl PluginRegistry {
@@ -63,21 +68,21 @@ impl PluginRegistry {
         }
     }
 
-    pub fn load_plugin(&mut self, lib: &'static str) -> Result<(), Error> {
-        if !self.libs.contains_key(lib) {
-            let plug = self.handler.add_library(lib, PlatformName::Yes)?;
-            self.libs.insert(lib, Plugin::new(&plug));
+    pub fn load_plugin(&mut self, lib: String) -> Result<(), Error> {
+        if !self.libs.contains_key(&lib) {
+            let plug = self.handler.add_library(&lib, PlatformName::Yes)?;
+            self.libs.insert(lib.clone(), Plugin::new(lib, &plug));
         }
         else {
-            let mut plugin = self.libs.get_mut(lib).unwrap();
+            let mut plugin = self.libs.get_mut(&lib).expect(&format!("Error retrieving plugin for {}", lib));
             self.handler.update(Plugin::reload_callback, &mut plugin);
         }
 
         Ok(())
     }
 
-    pub fn run(&self, lib: &str, secret: &str, body: String) -> Result<String, String> {
-        let plugin = self.libs.get(lib).unwrap();
-        plugin.run(secret, body)
+    pub fn run(&self, lib: String, secret: String, body: String) -> Result<Value, String> {
+        let plugin = self.libs.get(&lib).expect(&format!("Error retrieving plugin for {}", lib));
+        plugin.run(&secret, body)
     }
 }

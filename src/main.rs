@@ -37,7 +37,11 @@ fn main() {
     let config:Value = toml::from_str(&s).expect("Syntax error on Tolm file");
     let https = config["https"]["enabled"].as_bool().expect("Error interpreting https.enabled flag");
 
-    let addr = format!("{}:{}", config["address"].as_str().expect("Error interpreting address value"), if config.get("port").is_none() { if https { "443" } else { "80" } } else { config["port"].as_str().expect("Error interpreting port value") }).parse().expect("Error parsing webserver address");
+    let addr = format!("{}:{}", config["address"].as_str().expect("Error interpreting address value"), if config.get("port").is_none() {
+            if https { "443" } else { "80" }
+        } else {
+            config["port"].as_str().expect("Error interpreting port value")
+        }).parse().expect("Error parsing webserver address");
 
     if https {
         // Create our TLS context through which new connections will be

@@ -4,10 +4,8 @@ extern crate serde_json;
 
 use client_lib::{Bot, Telegram};
 
-use std::env;
 use std::fs::File;
 use std::io::Read;
-use std::path::Path;
 
 use serde_json::value::Value;
 
@@ -55,6 +53,32 @@ impl BlaspemyBot {
 
     fn blackhumor(&self, json: Value) -> Result<Value, String> {
         Err(String::from("TODO"))
+    }
+}
+
+#[no_mangle]
+pub extern fn init_bot(secret: &str, body: String) -> Result<Value, String> {
+    let config_file = "BlaspemyBot.toml";
+    match File::open(config_file) {
+        Ok(mut toml) => {
+            let mut s = String::new();
+            match toml.read_to_string(&mut s) {
+                Ok(_) => {
+                    match toml::from_str(&s) {
+                        Ok(config) => {
+                            let bot = Telegram::init_bot(BlaspemyBot::new, secret, config);
+                            match serde_json::from_str(&body) {
+                                Ok(value) => bot.parse(value),
+                                Err(e) => Err(format!("Syntax error on json request: {}", e)),
+                            }
+                        },
+                        Err(e) => Err(format!("Syntax error on Toml file: {}", e)),
+                    }
+                },
+                Err(e) => Err(format!("Unable to read Toml file: {}", e)),
+            }
+        },
+        Err(e) => Err(format!("File {} not found: {}", config_file, e)),
     }
 }
 

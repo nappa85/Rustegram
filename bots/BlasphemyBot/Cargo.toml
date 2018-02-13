@@ -3,6 +3,10 @@ name = "blasphemy_bot"
 version = "0.1.0"
 authors = ["Marco Napetti <marco.napetti@gmail.com>"]
 
+[lib]
+name = "BlasphemyBot"
+crate-type = ["dylib"]
+
 [dependencies]
 client_lib = { path = "../../client_lib" }
 toml = "0.4"

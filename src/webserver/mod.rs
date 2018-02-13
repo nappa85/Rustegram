@@ -21,6 +21,27 @@ lazy_static! {
 
 pub struct WebServer;
 
+impl WebServer {
+    fn map_body(bot: String, secret: String, chunks: Vec<u8>) -> Response {
+        //convert chunks to String
+        let body = String::from_utf8(chunks).expect("Unable to convert request body to string");
+
+        //load bot library
+        //this improves modularity
+        let temp = REGISTRY.clone();
+        let mut plugin_registry = temp.lock().expect("Unable to lock plugin registry");
+        match plugin_registry.load_plugin(bot.clone()) {
+            Ok(()) => {
+                    match plugin_registry.run(bot, secret, body) {
+                        Ok(out) => Response::new().with_status(StatusCode::Ok).with_body(out.to_string()),
+                        Err(e) => Response::new().with_status(StatusCode::InternalServerError).with_body(e),
+                    }
+                },
+            Err(e) => Response::new().with_status(StatusCode::InternalServerError).with_body(format!("{}", e)),
+        }
+    }
+}
+
 impl Service for WebServer {
     // boilerplate hooking up hyper's server types
     type Request = Request;
@@ -34,29 +55,17 @@ impl Service for WebServer {
         match req.method() {
             &Method::Post => {
                 lazy_static! {
-                    static ref RE: Regex = Regex::new(r"^/Telegram/([^/]+)/([^/]+)").unwrap();
+                    static ref RE: Regex = Regex::new(r"^/Telegram/([^/]+)/([^/]+)").expect("Unable to compile regexp");
                 }
 
-                match RE.captures(req.path()) {
+                let path = String::from(req.path());
+                match RE.captures(&path) {
                     //concat every request's body chunk
-                    Some(matches) => Box::new(req.body().concat2().map(move |chunks| {
-                        //convert chunks to String
-                        let body = String::from_utf8(chunks.to_vec()).unwrap();
-
-                        //load bot library
-                        //this improves modularity
-                        let temp = REGISTRY.clone();
-                        let mut plugin_registry = temp.lock().expect("Unable to lock plugin registry");
-                        match plugin_registry.load_plugin(matches.get(1).unwrap().as_str()) {
-                            Ok(()) => {
-                                    match plugin_registry.run(&matches[1], &matches[2], body) {
-                                        Ok(out) => Response::new().with_status(StatusCode::Ok).with_body(out),
-                                        Err(e) => Response::new().with_status(StatusCode::InternalServerError).with_body(e),
-                                    }
-                                },
-                            Err(e) => Response::new().with_status(StatusCode::InternalServerError).with_body(format!("{}", e)),
-                        }
-                    })),
+                    Some(matches) => {
+                        let bot = String::from(&matches[1]);
+                        let secret = String::from(&matches[2]);
+                        Box::new(req.body().concat2().map(move |chunks| { WebServer::map_body(bot, secret, chunks.to_vec()) }))
+                    },
                     None => Box::new(futures::future::ok(
                         Response::new().with_status(StatusCode::NotFound)
                     ))
