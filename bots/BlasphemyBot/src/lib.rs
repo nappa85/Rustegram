@@ -58,7 +58,7 @@ impl BlaspemyBot {
 
 #[no_mangle]
 pub extern fn init_bot(secret: &str, body: String) -> Result<Value, String> {
-    let config_file = "BlaspemyBot.toml";
+    let config_file = "config/BlaspemyBot.toml";
     match File::open(config_file) {
         Ok(mut toml) => {
             let mut s = String::new();

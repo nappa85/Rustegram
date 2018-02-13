@@ -29,7 +29,7 @@ fn main() {
     }
     else {
         let path = Path::new(args.get(0).expect("Cannot find executable path"));
-        format!("{}.toml", path.file_stem().expect("Cannot find executable name").to_str().expect("Cannot parse executable name"))
+        format!("config/{}.toml", path.file_stem().expect("Cannot find executable name").to_str().expect("Cannot parse executable name"))
     };
     let mut toml = File::open(&config_file).expect(&format!("File {} not found", config_file));
     let mut s = String::new();
