@@ -4,7 +4,7 @@ extern crate serde_json;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use self::dynamic_reload::{DynamicReload, Error, Search, Lib, UpdateState, Symbol, PlatformName};
+use self::dynamic_reload::{DynamicReload, Search, Lib, UpdateState, Symbol, PlatformName};
 
 use self::serde_json::value::Value;
 
@@ -78,21 +78,27 @@ impl PluginRegistry {
         }
     }
 
-    pub fn load_plugin(&mut self, lib: String) -> Result<(), Error> {
+    pub fn load_plugin(&mut self, lib: String) -> Result<(), String> {
         if !self.libs.contains_key(&lib) {
-            let plug = self.handler.add_library(&lib, PlatformName::Yes)?;
-            self.libs.insert(lib.clone(), Plugin::new(lib, &plug));
+            match self.handler.add_library(&lib, PlatformName::Yes) {
+                Ok(plug) => { self.libs.insert(lib.clone(), Plugin::new(lib, &plug)); },
+                Err(e) => { return Err(format!("Error loading plugin for {}: {}", lib, e)); },
+            }
         }
         else {
-            let mut plugin = self.libs.get_mut(&lib).expect(&format!("Error retrieving plugin for {}", lib));
-            self.handler.update(Plugin::reload_callback, &mut plugin);
+            match self.libs.get_mut(&lib) {
+                Some(mut plugin) => { self.handler.update(Plugin::reload_callback, &mut plugin); },
+                None => { return Err(format!("Error retrieving plugin for {}", lib)); },
+            }
         }
 
         Ok(())
     }
 
     pub fn run(&self, lib: String, secret: String, body: String) -> Result<Value, String> {
-        let plugin = self.libs.get(&lib).expect(&format!("Error retrieving plugin for {}", lib));
-        plugin.run(&secret, body)
+        match self.libs.get(&lib) {
+            Some(plugin) => plugin.run(&secret, body),
+            None => Err(format!("Error retrieving plugin for {}", lib)),
+        }
     }
 }

@@ -314,7 +314,7 @@ impl Telegram {
     fn call_telegram(&self, method: &str, params: HashMap<&str, Param>) -> Result<Value, String> {
         let url = format!("https://api.telegram.org/bot{}/{}", self.http_token, method);
         match self.client.post(&url)
-            .multipart(Telegram::write_body(params))
+            .multipart(Telegram::write_body(params)?)
             .send() {
             Ok(mut response) => {
                 match response.json() {
@@ -326,13 +326,16 @@ impl Telegram {
         }
     }
 
-    fn write_body(params: HashMap<&str, Param>) -> Form {
+    fn write_body(params: HashMap<&str, Param>) -> Result<Form, String> {
         let mut form = Form::new();
 
         for (name, value) in params {
             form = match value {
                 Param::Value(s) => form.text::<String, String>(name.to_owned(), s.to_owned()),
-                Param::File(s) => form.file::<String, String>(name.to_owned(), s.to_owned()).expect("Unable to add file to request"),
+                Param::File(s) => match form.file::<String, String>(name.to_owned(), s.to_owned()) {
+                    Err(e) => { return Err(format!("Unable to add file to request: {}", e)); },
+                    Ok(f) => f,
+                },
                 Param::Flag(b) => form.text::<String, String>(name.to_owned(), (if b { "true" } else { "false" }).to_owned()),
                 Param::Parse(ref p) => form.text::<String, String>(name.to_owned(), p.to_string()),
                 Param::Markup(ref k) => form.text::<String, String>(name.to_owned(), k.to_string()),
@@ -340,7 +343,7 @@ impl Telegram {
             };
         }
 
-        form
+        Ok(form)
     }
 }
 

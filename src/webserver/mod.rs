@@ -24,7 +24,11 @@ pub struct WebServer;
 impl WebServer {
     fn map_body(bot: String, secret: String, chunks: Vec<u8>) -> Response {
         //convert chunks to String
-        let body = String::from_utf8(chunks).expect("Unable to convert request body to string");
+        let body:String;
+        match String::from_utf8(chunks) {
+            Ok(s) => { body = s; },
+            Err(e) => { return Response::new().with_status(StatusCode::InternalServerError).with_body(format!("Unable to convert request body to string: {}", e)); },
+        }
 
         //load bot library
         //this improves modularity
@@ -37,7 +41,7 @@ impl WebServer {
                         Err(e) => Response::new().with_status(StatusCode::InternalServerError).with_body(e),
                     }
                 },
-            Err(e) => Response::new().with_status(StatusCode::InternalServerError).with_body(format!("{}", e)),
+            Err(e) => Response::new().with_status(StatusCode::InternalServerError).with_body(e),
         }
     }
 }
