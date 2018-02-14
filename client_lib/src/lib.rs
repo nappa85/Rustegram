@@ -104,24 +104,39 @@ impl Telegram {
         params.insert("chat_id", Param::Value(chat_id));
         params.insert("message", Param::Value(message));
 
-        if !reply_id.is_none() {
-            params.insert("reply_to_message_id", Param::Value(reply_id.expect("Unable to retrieve reply_id")));
+        match reply_id {
+            Some(value) => {
+                params.insert("reply_to_message_id", Param::Value(value));
+            },
+            None => {},
         }
 
-        if force_reply == Some(true) {
-            params.insert("reply_markup", Param::Markup(Keyboard { force_reply: true, selective: true }));
+        match force_reply {
+            Some(true) => {
+                params.insert("reply_markup", Param::Markup(Keyboard { force_reply: true, selective: true }));
+            },
+            _ => {},
         }
 
-        if preview.is_none() || preview == Some(false) {
-            params.insert("disable_web_page_preview", Param::Flag(true));
+        match preview {
+            Some(true) => {},
+            _ => {
+                params.insert("disable_web_page_preview", Param::Flag(true));
+            },
         }
 
-        if !parse_mode.is_none() {
-            params.insert("parse_mode", Param::Parse(parse_mode.expect("Unable to retrieve parse_mode")));
+        match parse_mode {
+            Some(value) => {
+                params.insert("parse_mode", Param::Parse(value));
+            },
+            None => {},
         }
 
-        if !keyboard.is_none() {
-            params.insert("reply_markup", Param::Markup(keyboard.expect("Unable to retrieve keyboard")));
+        match keyboard {
+            Some(value) => {
+                params.insert("reply_markup", Param::Markup(value));
+            },
+            None => {},
         }
 
         self.call_telegram("sendMessage", params)
@@ -141,15 +156,20 @@ impl Telegram {
 
         let res = self.call_telegram("getFile", params)?;
 
-        let url = format!("https://api.telegram.org/bot{}/{}", self.http_token, res["result"]["file_path"].as_str().expect("Unable to retrieve file_path"));
-        match self.client.get(&url).send() {
-            Ok(mut file) => {
-                match file.text() {
-                    Ok(file) => Ok(file),
+        match res["result"]["file_path"].as_str() {
+            Some(file_path) => {
+                let url = format!("https://api.telegram.org/bot{}/{}", self.http_token, file_path);
+                match self.client.get(&url).send() {
+                    Ok(mut file) => {
+                        match file.text() {
+                            Ok(file) => Ok(file),
+                            Err(e) => Err(format!("{}", e)),
+                        }
+                    },
                     Err(e) => Err(format!("{}", e)),
                 }
             },
-            Err(e) => Err(format!("{}", e)),
+            None => Err(String::from("Unable to retrieve file_path")),
         }
     }
 
@@ -158,20 +178,32 @@ impl Telegram {
         params.insert("chat_id", Param::Value(chat_id));
         params.insert("photo", Param::File(photo));
 
-        if !caption.is_none() {
-            params.insert("caption", Param::Value(caption.expect("Unable to retrieve caption")));
+        match caption {
+            Some(value) => {
+                params.insert("caption", Param::Value(value));
+            }
+            None => {},
         }
 
-        if !reply_id.is_none() {
-            params.insert("reply_to_message_id", Param::Value(reply_id.expect("Unable to retrieve reply_id")));
+        match reply_id {
+            Some(value) => {
+                params.insert("reply_to_message_id", Param::Value(value));
+            },
+            None => {},
         }
 
-        if force_reply == Some(true) {
-            params.insert("reply_markup", Param::Markup(Keyboard { force_reply: true, selective: true }));
+        match force_reply {
+            Some(true) => {
+                params.insert("reply_markup", Param::Markup(Keyboard { force_reply: true, selective: true }));
+            },
+            _ => {},
         }
 
-        if preview.is_none() || preview == Some(false) {
-            params.insert("disable_web_page_preview", Param::Flag(true));
+        match preview {
+            Some(true) => {},
+            _ => {
+                params.insert("disable_web_page_preview", Param::Flag(true));
+            },
         }
 
         self.call_telegram("sendPhoto", params)
@@ -182,24 +214,39 @@ impl Telegram {
         params.insert("chat_id", Param::Value(chat_id));
         params.insert("audio", Param::File(audio));
 
-        if !duration.is_none() {
-            params.insert("duration", Param::Value(duration.expect("Unable to retrieve duration")));
+        match duration {
+            Some(value) => {
+                params.insert("duration", Param::Value(value));
+            },
+            None => {},
         }
 
-        if !performer.is_none() {
-            params.insert("performer", Param::Value(performer.expect("Unable to retrieve performer")));
+        match performer {
+            Some(value) => {
+                params.insert("performer", Param::Value(value));
+            },
+            None => {},
         }
 
-        if !title.is_none() {
-            params.insert("title", Param::Value(title.expect("Unable to retrieve title")));
+        match title {
+            Some(value) => {
+                params.insert("title", Param::Value(value));
+            },
+            None => {},
         }
 
-        if !reply_id.is_none() {
-            params.insert("reply_to_message_id", Param::Value(reply_id.expect("Unable to retrieve reply_id")));
+        match reply_id {
+            Some(value) => {
+                params.insert("reply_to_message_id", Param::Value(value));
+            },
+            None => {},
         }
 
-        if force_reply == Some(true) {
-            params.insert("reply_markup", Param::Markup(Keyboard { force_reply: true, selective: true }));
+        match force_reply {
+            Some(true) => {
+                params.insert("reply_markup", Param::Markup(Keyboard { force_reply: true, selective: true }));
+            },
+            _ => {},
         }
 
         self.call_telegram("sendAudio", params)
@@ -210,16 +257,25 @@ impl Telegram {
         params.insert("chat_id", Param::Value(chat_id));
         params.insert("voice", Param::File(voice));
 
-        if !duration.is_none() {
-            params.insert("duration", Param::Value(duration.expect("Unable to retrieve duration")));
+        match duration {
+            Some(value) => {
+                params.insert("duration", Param::Value(value));
+            },
+            None => {},
         }
 
-        if !reply_id.is_none() {
-            params.insert("reply_to_message_id", Param::Value(reply_id.expect("Unable to retrieve reply_id")));
+        match reply_id {
+            Some(value) => {
+                params.insert("reply_to_message_id", Param::Value(value));
+            },
+            None => {},
         }
 
-        if force_reply == Some(true) {
-            params.insert("reply_markup", Param::Markup(Keyboard { force_reply: true, selective: true }));
+        match force_reply {
+            Some(true) => {
+                params.insert("reply_markup", Param::Markup(Keyboard { force_reply: true, selective: true }));
+            },
+            _ => {},
         }
 
         self.call_telegram("sendVoice", params)
@@ -230,12 +286,18 @@ impl Telegram {
         params.insert("chat_id", Param::Value(chat_id));
         params.insert("document", Param::File(document));
 
-        if !reply_id.is_none() {
-            params.insert("reply_to_message_id", Param::Value(reply_id.expect("Unable to retrieve reply_id")));
+        match reply_id {
+            Some(value) => {
+                params.insert("reply_to_message_id", Param::Value(value));
+            },
+            None => {},
         }
 
-        if force_reply == Some(true) {
-            params.insert("reply_markup", Param::Markup(Keyboard { force_reply: true, selective: true }));
+        match force_reply {
+            Some(true) => {
+                params.insert("reply_markup", Param::Markup(Keyboard { force_reply: true, selective: true }));
+            },
+            _ => {},
         }
 
         self.call_telegram("sendDocument", params)
