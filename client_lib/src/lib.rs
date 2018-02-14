@@ -4,7 +4,7 @@ extern crate toml;
 
 use std::collections::HashMap;
 use reqwest::multipart::Form;
-use reqwest::{Client, Result};
+use reqwest::Client;
 use serde_json::value::Value;
 
 pub enum Param<'a> {
@@ -73,14 +73,14 @@ pub struct Telegram {
 }
 
 impl Telegram {
-    pub fn init_bot<B: Bot, F>(constructor: F, secret: &str, config: toml::Value) -> std::result::Result<B, String>
+    pub fn init_bot<B: Bot, F>(constructor: F, secret: &str, config: toml::Value) -> Result<B, String>
         where F: Fn(Telegram, toml::Value) -> B
     {
         match config["SECRET"].as_str() {
             Some(conf_secret) => {
                 if secret == conf_secret {
                     match config["HTTP_TOKEN"].as_str() {
-                        Some(token) => Ok(constructor(Telegram::new(token), config)),
+                        Some(token) => Ok(constructor(Telegram::new(token), config.clone())),
                         None => Err(String::from("Error interpreting HTTP_TOKEN config value")),
                     }
                 }
@@ -99,7 +99,7 @@ impl Telegram {
         }
     }
 
-    pub fn send_message(&self, chat_id: &str, message: &str, reply_id: Option<&str>, force_reply: Option<bool>, preview: Option<bool>, parse_mode: Option<ParseMode>, keyboard: Option<Keyboard>) -> Result<Value> {
+    pub fn send_message(&self, chat_id: &str, message: &str, reply_id: Option<&str>, force_reply: Option<bool>, preview: Option<bool>, parse_mode: Option<ParseMode>, keyboard: Option<Keyboard>) -> Result<Value, String> {
         let mut params = HashMap::new();
         params.insert("chat_id", Param::Value(chat_id));
         params.insert("message", Param::Value(message));
@@ -127,7 +127,7 @@ impl Telegram {
         self.call_telegram("sendMessage", params)
     }
 
-    pub fn delete_message(&self, chat_id: &str, message_id: &str) -> Result<Value> {
+    pub fn delete_message(&self, chat_id: &str, message_id: &str) -> Result<Value, String> {
         let mut params = HashMap::new();
         params.insert("chat_id", Param::Value(chat_id));
         params.insert("message_id", Param::Value(message_id));
@@ -135,19 +135,25 @@ impl Telegram {
         self.call_telegram("deleteMessage", params)
     }
 
-    pub fn get_file(&self, file_id: &str) -> Result<String> {
+    pub fn get_file(&self, file_id: &str) -> Result<String, String> {
         let mut params = HashMap::new();
         params.insert("file_id", Param::Value(file_id));
 
         let res = self.call_telegram("getFile", params)?;
 
         let url = format!("https://api.telegram.org/bot{}/{}", self.http_token, res["result"]["file_path"].as_str().expect("Unable to retrieve file_path"));
-        let mut file = self.client.get(&url).send()?;
-
-        file.text()
+        match self.client.get(&url).send() {
+            Ok(mut file) => {
+                match file.text() {
+                    Ok(file) => Ok(file),
+                    Err(e) => Err(format!("{}", e)),
+                }
+            },
+            Err(e) => Err(format!("{}", e)),
+        }
     }
 
-    pub fn send_photo(&self, chat_id: &str, photo: &str, caption: Option<&str>, reply_id: Option<&str>, force_reply: Option<bool>, preview: Option<bool>) -> Result<Value> {
+    pub fn send_photo(&self, chat_id: &str, photo: &str, caption: Option<&str>, reply_id: Option<&str>, force_reply: Option<bool>, preview: Option<bool>) -> Result<Value, String> {
         let mut params = HashMap::new();
         params.insert("chat_id", Param::Value(chat_id));
         params.insert("photo", Param::File(photo));
@@ -171,7 +177,7 @@ impl Telegram {
         self.call_telegram("sendPhoto", params)
     }
 
-    pub fn send_audio(&self, chat_id: &str, audio: &str, duration: Option<&str>, performer: Option<&str>, title: Option<&str>, reply_id: Option<&str>, force_reply: Option<bool>) -> Result<Value> {
+    pub fn send_audio(&self, chat_id: &str, audio: &str, duration: Option<&str>, performer: Option<&str>, title: Option<&str>, reply_id: Option<&str>, force_reply: Option<bool>) -> Result<Value, String> {
         let mut params = HashMap::new();
         params.insert("chat_id", Param::Value(chat_id));
         params.insert("audio", Param::File(audio));
@@ -199,7 +205,7 @@ impl Telegram {
         self.call_telegram("sendAudio", params)
     }
 
-    pub fn send_voice(&self, chat_id: &str, voice: &str, duration: Option<&str>, reply_id: Option<&str>, force_reply: Option<bool>) -> Result<Value> {
+    pub fn send_voice(&self, chat_id: &str, voice: &str, duration: Option<&str>, reply_id: Option<&str>, force_reply: Option<bool>) -> Result<Value, String> {
         let mut params = HashMap::new();
         params.insert("chat_id", Param::Value(chat_id));
         params.insert("voice", Param::File(voice));
@@ -219,7 +225,7 @@ impl Telegram {
         self.call_telegram("sendVoice", params)
     }
 
-    pub fn send_document(&self, chat_id: &str, document: &str, reply_id: Option<&str>, force_reply: Option<bool>) -> Result<Value> {
+    pub fn send_document(&self, chat_id: &str, document: &str, reply_id: Option<&str>, force_reply: Option<bool>) -> Result<Value, String> {
         let mut params = HashMap::new();
         params.insert("chat_id", Param::Value(chat_id));
         params.insert("document", Param::File(document));
@@ -235,7 +241,7 @@ impl Telegram {
         self.call_telegram("sendDocument", params)
     }
 
-    pub fn send_chat_action(&self, chat_id: &str, action: ChatAction) -> Result<Value> {
+    pub fn send_chat_action(&self, chat_id: &str, action: ChatAction) -> Result<Value, String> {
         let mut params = HashMap::new();
         params.insert("chat_id", Param::Value(chat_id));
         params.insert("action", Param::Action(action));
@@ -243,13 +249,19 @@ impl Telegram {
         self.call_telegram("sendChatAction", params)
     }
 
-    fn call_telegram(&self, method: &str, params: HashMap<&str, Param>) -> Result<Value> {
+    fn call_telegram(&self, method: &str, params: HashMap<&str, Param>) -> Result<Value, String> {
         let url = format!("https://api.telegram.org/bot{}/{}", self.http_token, method);
-        let mut response = self.client.post(&url)
+        match self.client.post(&url)
             .multipart(Telegram::write_body(params))
-            .send()?;
-
-        response.json()
+            .send() {
+            Ok(mut response) => {
+                match response.json() {
+                    Ok(res) => Ok(res),
+                    Err(e) => Err(format!("{}", e)),
+                }
+            },
+            Err(e) => Err(format!("{}", e)),
+        }
     }
 
     fn write_body(params: HashMap<&str, Param>) -> Form {
@@ -273,11 +285,11 @@ impl Telegram {
 pub trait Bot {
     fn new(api: Telegram, cfg: toml::Value) -> Self;
 
-    fn parse(&self, json: Value) -> std::result::Result<Value, String> {
+    fn parse(&self, json: Value) -> Result<Value, String> {
         Err(String::from("TODO"))
     }
 
-    fn dispatch(&self, method: &str, json: Value) -> std::result::Result<Value, String>;
+    fn dispatch(&self, method: &str, json: Value) -> Result<Value, String>;
 }
 
 #[cfg(test)]
