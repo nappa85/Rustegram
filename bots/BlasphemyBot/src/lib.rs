@@ -86,8 +86,36 @@ pub extern fn init_bot(secret: &str, body: String) -> Result<Value, String> {
 
 #[cfg(test)]
 mod tests {
+    use super::{toml, init_bot};
+
+    use std::fs::File;
+    use std::io::Read;
+
+    use serde_json::value::Value;
+
     #[test]
     fn it_works() {
-        assert_eq!(2 + 2, 4);
+        let er:Result<Value, String>;
+        let config_file = "config/BlasphemyBot.toml";
+        match File::open(config_file) {
+            Ok(mut toml) => {
+                let mut s = String::new();
+                match toml.read_to_string(&mut s) {
+                    Ok(_) => {
+                        match toml::from_str(&s) {
+                            Ok(temp) => {
+                                let config:toml::Value = temp;
+                                er = init_bot(config["SECRET"].as_str().unwrap(), String::from("{}"));
+                            },
+                            Err(e) => { er = Err(format!("Syntax error on Toml file: {}", e)); },
+                        }
+                    },
+                    Err(e) => { er = Err(format!("Unable to read Toml file: {}", e)); },
+                }
+            },
+            Err(e) => { er = Err(format!("File {} not found: {}", config_file, e)); },
+        }
+
+        assert_eq!(er, Err(String::from("TODO")));
     }
 }

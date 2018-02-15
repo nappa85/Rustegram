@@ -1,8 +1,6 @@
 extern crate hyper;
 extern crate futures;
 extern crate regex;
-extern crate client_lib;
-extern crate serde_json;
 
 use std::sync::{Arc, Mutex};
 
@@ -13,10 +11,6 @@ use self::hyper::{Method, StatusCode};
 use self::hyper::server::{Request, Response, Service};
 
 use self::regex::Regex;
-
-use self::serde_json::value::Value;
-
-use self::client_lib::session;
 
 mod registry;
 

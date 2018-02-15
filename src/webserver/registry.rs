@@ -31,12 +31,18 @@ impl Plugin {
     pub fn reload_callback(&mut self, state: UpdateState, plug: Option<&Arc<Lib>>) {
         match state {
             UpdateState::Before => {
+                println!("Started Symbol update for {}", self.name);
                 self.callable = false;
             },
             UpdateState::After => {
                 match plug {
-                    Some(temp) => { self.lib = temp.clone(); },
-                    None => { println!("Symbol updated to None for {}", self.name); },
+                    Some(temp) => {
+                        println!("Symbol updated for {}", self.name);
+                        self.lib = temp.clone();
+                    },
+                    None => {
+                        println!("Symbol updated to None for {}", self.name);
+                    },
                 }
 //                 self.fun = unsafe {
 //                     self.lib.lib.get(b"init_bot\0").expect(&format!("Error updating Symbol for {}", name))
