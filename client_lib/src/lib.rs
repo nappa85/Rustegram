@@ -356,20 +356,6 @@ pub trait Bot {
     fn new(api: Telegram, cfg: toml::Value) -> Self;
 
     fn parse(&self, json: Value) -> Result<Value, String> {
-        {//debug
-            let ses = session::SESSION.clone();
-            let temp = ses.lock();
-            match temp {
-                Ok(mut session) => {
-                    match session.get(String::from("chiave")) {
-                        Some(value) => println!("Value found: {}", value.to_string()),
-                        None => println!("Value NOT found"),
-                    }
-                },
-                Err(e) => println!("{}", e),
-            }
-        }//debug
-
         Err(String::from("TODO"))
     }
 

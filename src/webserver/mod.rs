@@ -43,15 +43,6 @@ impl WebServer {
         match temp {
             Ok(mut plugin_registry) => match plugin_registry.load_plugin(bot.clone()) {
                 Ok(()) => {
-                    {//debug
-                        let ses = session::SESSION.clone();
-                        let temp = ses.lock();
-                        match temp {
-                            Ok(mut session) => session.set(String::from("chiave"), Value::String(String::from("valore"))),
-                            Err(e) => println!("{}", e),
-                        }
-                    }//debug
-
                     match plugin_registry.run(bot, secret, body) {
                         Ok(out) => Response::new().with_status(StatusCode::Ok).with_body(out.to_string()),
                         Err(e) => Response::new().with_status(StatusCode::InternalServerError).with_body(e),
