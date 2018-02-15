@@ -1,6 +1,8 @@
 extern crate hyper;
 extern crate futures;
 extern crate regex;
+extern crate client_lib;
+extern crate serde_json;
 
 use std::sync::{Arc, Mutex};
 
@@ -11,6 +13,10 @@ use self::hyper::{Method, StatusCode};
 use self::hyper::server::{Request, Response, Service};
 
 use self::regex::Regex;
+
+use self::serde_json::value::Value;
+
+use self::client_lib::session;
 
 mod registry;
 
@@ -32,16 +38,28 @@ impl WebServer {
 
         //load bot library
         //this improves modularity
-        let temp = REGISTRY.clone();
-        let mut plugin_registry = temp.lock().expect("Unable to lock plugin registry");
-        match plugin_registry.load_plugin(bot.clone()) {
-            Ok(()) => {
+        let reg = REGISTRY.clone();
+        let temp = reg.lock();
+        match temp {
+            Ok(mut plugin_registry) => match plugin_registry.load_plugin(bot.clone()) {
+                Ok(()) => {
+                    {//debug
+                        let ses = session::SESSION.clone();
+                        let temp = ses.lock();
+                        match temp {
+                            Ok(mut session) => session.set(String::from("chiave"), Value::String(String::from("valore"))),
+                            Err(e) => println!("{}", e),
+                        }
+                    }//debug
+
                     match plugin_registry.run(bot, secret, body) {
                         Ok(out) => Response::new().with_status(StatusCode::Ok).with_body(out.to_string()),
                         Err(e) => Response::new().with_status(StatusCode::InternalServerError).with_body(e),
                     }
                 },
-            Err(e) => Response::new().with_status(StatusCode::InternalServerError).with_body(e),
+                Err(e) => Response::new().with_status(StatusCode::InternalServerError).with_body(e),
+            },
+            Err(e) => Response::new().with_status(StatusCode::InternalServerError).with_body(format!("Unable to lock plugin registry: {}", e)),
         }
     }
 }

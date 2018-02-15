@@ -1,11 +1,16 @@
+#[macro_use]
+extern crate lazy_static;
 extern crate reqwest;
 extern crate serde_json;
 extern crate toml;
 
 use std::collections::HashMap;
+
 use reqwest::multipart::Form;
 use reqwest::Client;
 use serde_json::value::Value;
+
+pub mod session;
 
 pub enum Param<'a> {
     Value(&'a str),
@@ -351,6 +356,20 @@ pub trait Bot {
     fn new(api: Telegram, cfg: toml::Value) -> Self;
 
     fn parse(&self, json: Value) -> Result<Value, String> {
+        {//debug
+            let ses = session::SESSION.clone();
+            let temp = ses.lock();
+            match temp {
+                Ok(mut session) => {
+                    match session.get(String::from("chiave")) {
+                        Some(value) => println!("Value found: {}", value.to_string()),
+                        None => println!("Value NOT found"),
+                    }
+                },
+                Err(e) => println!("{}", e),
+            }
+        }//debug
+
         Err(String::from("TODO"))
     }
 
