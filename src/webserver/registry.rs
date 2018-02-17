@@ -1,110 +1,111 @@
 extern crate dynamic_reload;
 extern crate serde_json;
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use self::dynamic_reload::{DynamicReload, Search, Lib, UpdateState, Symbol, PlatformName};
 
 use self::serde_json::value::Value;
 
-struct Plugin {
+pub struct Plugin {
     name: String,
-    callable: bool,
-    lib: Arc<Lib>,
-//     fun: Symbol<'a, extern "C" fn(secret: &str, body: String) -> Result<Value, String>>,
+    plugins: Vec<Arc<Lib>>,
 }
 
 impl Plugin {
-    pub fn new(name: String, plug: &Arc<Lib>) -> Plugin {
-        let temp = plug.clone();
+    pub fn new(name: String) -> Plugin {
         Plugin {
             name: name,
-            callable: true,
-            lib: temp,
-//             fun: unsafe {
-//                 temp.lib.get(b"init_bot\0").expect(&format!("Error getting Symbol for {}", name))
-//             }
+            plugins: Vec::new()
         }
     }
 
-    pub fn reload_callback(&mut self, state: UpdateState, plug: Option<&Arc<Lib>>) {
+    fn add_plugin(&mut self, plugin: &Arc<Lib>) {
+        self.plugins.push(plugin.clone());
+    }
+
+    fn unload_plugins(&mut self, lib: &Arc<Lib>) {
+        for i in (0..self.plugins.len()).rev() {
+            if &self.plugins[i] == lib {
+                self.plugins.swap_remove(i);
+            }
+        }
+    }
+
+    fn reload_plugin(&mut self, lib: &Arc<Lib>) {
+        Self::add_plugin(self, lib);
+    }
+
+    // called when a lib needs to be reloaded.
+    fn reload_callback(&mut self, state: UpdateState, lib: Option<&Arc<Lib>>) {
         match state {
-            UpdateState::Before => {
-                println!("Started Symbol update for {}", self.name);
-                self.callable = false;
-            },
-            UpdateState::After => {
-                match plug {
-                    Some(temp) => {
-                        println!("Symbol updated for {}", self.name);
-                        self.lib = temp.clone();
-                    },
-                    None => {
-                        println!("Symbol updated to None for {}", self.name);
-                    },
-                }
-//                 self.fun = unsafe {
-//                     self.lib.lib.get(b"init_bot\0").expect(&format!("Error updating Symbol for {}", name))
-//                 };
-                self.callable = true;
-            },
+            UpdateState::Before => Self::unload_plugins(self, lib.unwrap()),
+            UpdateState::After => Self::reload_plugin(self, lib.unwrap()),
             UpdateState::ReloadFailed(_) => println!("Failed to reload"),
         }
     }
 
     pub fn run(&self, secret: &str, body: String) -> Result<Value, String> {
-//         let f = self.fun;
-        // In a real program you want to cache the symbol and not do it every time if your
-        // application is performance critical
-//         let f: Symbol<extern "C" fn(secret: &str, body: String) -> Result<Value, String>> = unsafe {
-//             self.lib.lib.get(b"init_bot\0").expect(&format!("Error getting Symbol for {}", self.name))
-//         };
-//         f(secret, body)
-        match unsafe { self.lib.lib.get(b"init_bot\0") } {
-            Ok(temp) => {
-                let f: Symbol<extern "C" fn(secret: &str, body: String) -> Result<Value, String>> = temp;
-                f(secret, body)
-            },
-            Err(e) => Err(format!("Error getting Symbol for {}: {}", self.name, e)),
+        if self.plugins.len() > 0 {
+            // In a real program you want to cache the symbol and not do it every time if your
+            // application is performance critical
+            match unsafe { self.plugins[0].lib.get(b"init_bot\0") } {
+                Ok(temp) => {
+                    let f: Symbol<extern "C" fn(secret: &str, body: String) -> Result<Value, String>> = temp;
+                    f(secret, body)
+                },
+                Err(e) => Err(format!("Error getting Symbol for {}: {}", self.name, e)),
+            }
+        }
+        else {
+            Err(format!("Lib {} not loaded", self.name))
         }
     }
 }
 
 pub struct PluginRegistry {
     handler: DynamicReload<'static>,
-    libs: HashMap<String, Plugin>,
+    libs: Vec<Plugin>,
 }
 
 impl PluginRegistry {
     pub fn new() -> PluginRegistry {
+        // Setup the reload handler. A temporary directory will be created inside the tmp folder
+        // where plugins will be loaded from. That is because on some OS:es loading a shared lib
+        // will lock the file so we can't overwrite it so this works around that issue.
         PluginRegistry {
             handler: DynamicReload::new(Some(vec!["bots"]), Some("tmp"), Search::Default),
-            libs: HashMap::new(),
+            libs: Vec::new(),
         }
     }
 
-    pub fn load_plugin(&mut self, lib: String) -> Result<(), String> {
-        if !self.libs.contains_key(&lib) {
-            match self.handler.add_library(&lib, PlatformName::Yes) {
-                Ok(plug) => { self.libs.insert(lib.clone(), Plugin::new(lib, &plug)); },
-                Err(e) => { return Err(format!("Error loading plugin for {}: {}", lib, e)); },
-            }
-        }
-        else {
-            match self.libs.get_mut(&lib) {
-                Some(mut plugin) => { self.handler.update(Plugin::reload_callback, &mut plugin); },
-                None => { return Err(format!("Error retrieving plugin for {}", lib)); },
+    pub fn load_plugin(&mut self, lib: String) -> Result<&Plugin, String> {
+        for i in 0..self.libs.len() {
+            if self.libs[i].name == lib {
+                match self.libs.get_mut(i) {
+                    Some(mut plugin) => {
+                        self.handler.update(Plugin::reload_callback, &mut plugin);
+                        return Ok(plugin);
+                    },
+                    None => { return Err(format!("Plugin disappeared: {}", lib)); },
+                }
             }
         }
 
-        Ok(())
-    }
-
-    pub fn run(&self, lib: String, secret: String, body: String) -> Result<Value, String> {
-        match self.libs.get(&lib) {
-            Some(plugin) => plugin.run(&secret, body),
-            None => Err(format!("Error retrieving plugin for {}", lib)),
+        match self.handler.add_library(&lib, PlatformName::Yes) {
+            Ok(plug) => {
+                let i = self.libs.len();
+                self.libs.push(Plugin::new(lib.clone()));
+                match self.libs.get_mut(i) {
+                    Some(mut plugin) => {
+                        plugin.add_plugin(&plug);
+                        self.handler.update(Plugin::reload_callback, &mut plugin);
+                        return Ok(plugin);
+                    },
+                    None => { return Err(format!("Plugin disappeared: {}", lib)); },
+                }
+            },
+            Err(e) => Err(format!("Error loading plugin for {}: {}", lib, e)),
         }
     }
 }

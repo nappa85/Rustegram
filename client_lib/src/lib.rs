@@ -1,5 +1,5 @@
-#[macro_use]
-extern crate lazy_static;
+// #[macro_use]
+// extern crate lazy_static;
 extern crate reqwest;
 extern crate serde_json;
 extern crate toml;
@@ -10,7 +10,7 @@ use reqwest::multipart::Form;
 use reqwest::Client;
 use serde_json::value::Value;
 
-pub mod session;
+//pub mod session;
 
 pub enum Param<'a> {
     Value(&'a str),
