@@ -37,7 +37,7 @@ impl WebServer {
         match temp {
             Ok(mut plugin_registry) => match plugin_registry.load_plugin(bot.clone()) {
                 Ok(plugin) => {
-                    match plugin.run(&secret, body) {
+                    match plugin.run(secret, body) {
                         Ok(out) => Response::new().with_status(StatusCode::Ok).with_body(out.to_string()),
                         Err(e) => Response::new().with_status(StatusCode::InternalServerError).with_body(e),
                     }

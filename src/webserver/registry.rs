@@ -52,17 +52,14 @@ impl Plugin {
         }
     }
 
-    pub fn run(&self, secret: &str, body: String) -> Result<Value, String> {
+    pub fn run(&self, secret: String, body: String) -> Result<Value, String> {
         if self.plugins.len() > 0 {
             // In a real program you want to cache the symbol and not do it every time if your
             // application is performance critical
             match unsafe { self.plugins[0].lib.get(b"init_bot\0") } {
                 Ok(temp) => {
-                    let f: Symbol<extern "C" fn(secret: &str, body: String) -> Result<Value, String>> = temp;
-                    println!("DEBUG: before");
-                    let res = f(secret, body);
-                    println!("DEBUG: after");
-                    res
+                    let f: Symbol<extern "C" fn(secret: &str, body: &str) -> Result<Value, String>> = temp;
+                    f(&secret.clone(), &body.clone())
                 },
                 Err(e) => Err(format!("Error getting Symbol for {}: {}", self.name, e)),
             }
