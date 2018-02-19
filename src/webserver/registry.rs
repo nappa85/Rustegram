@@ -1,9 +1,16 @@
 extern crate dynamic_reload;
+extern crate notify;
 extern crate serde_json;
 
 use std::sync::Arc;
+use std::sync::mpsc::{channel, Receiver, TryRecvError};
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use self::dynamic_reload::{DynamicReload, Search, Lib, UpdateState, Symbol, PlatformName};
+
+use self::notify::{RecommendedWatcher, Watcher, RecursiveMode, DebouncedEvent};
 
 use self::serde_json::value::Value;
 
@@ -52,7 +59,10 @@ impl Plugin {
             match unsafe { self.plugins[0].lib.get(b"init_bot\0") } {
                 Ok(temp) => {
                     let f: Symbol<extern "C" fn(secret: &str, body: String) -> Result<Value, String>> = temp;
-                    f(secret, body)
+                    println!("DEBUG: before");
+                    let res = f(secret, body);
+                    println!("DEBUG: after");
+                    res
                 },
                 Err(e) => Err(format!("Error getting Symbol for {}: {}", self.name, e)),
             }
@@ -65,44 +75,58 @@ impl Plugin {
 
 pub struct PluginRegistry {
     handler: DynamicReload<'static>,
-    libs: Vec<Plugin>,
+    libs: HashMap<String, Plugin>,
+    watcher: RecommendedWatcher,
+    watch_recv: Receiver<DebouncedEvent>,
 }
 
 impl PluginRegistry {
     pub fn new() -> PluginRegistry {
+        let (tx, rx) = channel();
+
+        //those expect are fine, if it fails we want to panic!
+        let mut watcher: RecommendedWatcher = Watcher::new(tx, Duration::from_secs(2)).expect("Unable to init config watcher");
+        watcher.watch(Path::new("config/"), RecursiveMode::NonRecursive).expect("Unable to watch config dir");
+
         // Setup the reload handler. A temporary directory will be created inside the tmp folder
         // where plugins will be loaded from. That is because on some OS:es loading a shared lib
         // will lock the file so we can't overwrite it so this works around that issue.
         PluginRegistry {
             handler: DynamicReload::new(Some(vec!["bots"]), Some("tmp"), Search::Default),
-            libs: Vec::new(),
+            libs: HashMap::new(),
+            watcher: watcher,
+            watch_recv: rx,
         }
     }
 
     pub fn load_plugin(&mut self, lib: String) -> Result<&Plugin, String> {
-        for i in 0..self.libs.len() {
-            if self.libs[i].name == lib {
-                match self.libs.get_mut(i) {
-                    Some(mut plugin) => {
-                        self.handler.update(Plugin::reload_callback, &mut plugin);
-                        return Ok(plugin);
-                    },
-                    None => { return Err(format!("Plugin disappeared: {}", lib)); },
-                }
+        loop {
+            match self.watch_recv.try_recv() {
+                Ok(event) => println!("{:?}", event),
+                Err(e) => if e == TryRecvError::Empty { break; } else { println!("watch error: {:?}", e); },
+            }
+        }
+
+        if self.libs.contains_key(&lib) {
+            match self.libs.get_mut(&lib) {
+                Some(mut plugin) => {
+                    self.handler.update(Plugin::reload_callback, &mut plugin);
+                    return Ok(plugin);
+                },
+                None => { return Err(format!("Plugin disappeared: {}", lib)); },
             }
         }
 
         match self.handler.add_library(&lib, PlatformName::Yes) {
             Ok(plug) => {
-                let i = self.libs.len();
-                self.libs.push(Plugin::new(lib.clone()));
-                match self.libs.get_mut(i) {
+                self.libs.insert(lib.clone(), Plugin::new(lib.clone()));
+                match self.libs.get_mut(&lib) {
                     Some(mut plugin) => {
                         plugin.add_plugin(&plug);
                         self.handler.update(Plugin::reload_callback, &mut plugin);
-                        return Ok(plugin);
+                        Ok(plugin)
                     },
-                    None => { return Err(format!("Plugin disappeared: {}", lib)); },
+                    None => Err(format!("Plugin disappeared: {}", lib)),
                 }
             },
             Err(e) => Err(format!("Error loading plugin for {}: {}", lib, e)),
