@@ -59,14 +59,14 @@ impl Plugin {
         }
     }
 
-    pub fn run(&self, secret: String, body: String) -> Result<JsonValue, String> {
+    pub fn run(&self, secret: String, body: JsonValue) -> Result<JsonValue, String> {
         if self.plugins.len() > 0 {
             // In a real program you want to cache the symbol and not do it every time if your
             // application is performance critical
             match unsafe { self.plugins[0].lib.get(b"init_bot\0") } {
                 Ok(temp) => {
-                    let f: Symbol<extern "C" fn(config: TomlValue, secret: &str, body: &str) -> Result<JsonValue, String>> = temp;
-                    f(self.config, &secret.clone(), &body.clone())
+                    let f: Symbol<extern "C" fn(config: TomlValue, secret: &str, body: JsonValue) -> Result<JsonValue, String>> = temp;
+                    f(self.config.clone(), &secret.clone(), body)//TODO: test on mac
                 },
                 Err(e) => Err(format!("Error getting Symbol for {}: {}", self.name, e)),
             }

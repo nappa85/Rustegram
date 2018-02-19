@@ -6,7 +6,7 @@ use client_lib::{Bot, Telegram};
 
 use serde_json::value::Value as JsonValue;
 
-use toml::Value as TomlValue,
+use toml::Value as TomlValue;
 
 struct BlaspemyBot {
     api: Telegram,
@@ -56,30 +56,10 @@ impl BlaspemyBot {
 }
 
 #[no_mangle]
-pub extern fn init_bot(config: TomlValue, secret: &str, body: &str) -> Result<JsonValue, String> {
-    let config_file = "config/BlasphemyBot.toml";
-    match File::open(config_file) {
-        Ok(mut toml) => {
-            let mut s = String::new();
-            match toml.read_to_string(&mut s) {
-                Ok(_) => {
-                    match toml::from_str(&s) {
-                        Ok(config) => {
-                            match Telegram::init_bot(BlaspemyBot::new, secret, config) {
-                                Ok(bot) => match serde_json::from_str(body) {
-                                    Ok(value) => bot.parse(value),
-                                    Err(e) => Err(format!("Syntax error on json request: {}", e)),
-                                },
-                                Err(e) => Err(format!("Error during bot init: {}", e)),
-                            }
-                        },
-                        Err(e) => Err(format!("Syntax error on Toml file: {}", e)),
-                    }
-                },
-                Err(e) => Err(format!("Unable to read Toml file: {}", e)),
-            }
-        },
-        Err(e) => Err(format!("File {} not found: {}", config_file, e)),
+pub extern fn init_bot(config: TomlValue, secret: &str, body: JsonValue) -> Result<JsonValue, String> {
+    match Telegram::init_bot(BlaspemyBot::new, secret, config) {
+        Ok(bot) => bot.parse(body),
+        Err(e) => Err(format!("Error during bot init: {}", e)),
     }
 }
 

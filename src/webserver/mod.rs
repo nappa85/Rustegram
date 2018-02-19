@@ -1,6 +1,7 @@
 extern crate hyper;
 extern crate futures;
 extern crate regex;
+extern crate serde_json;
 
 use std::sync::{Arc, Mutex};
 
@@ -24,27 +25,27 @@ pub struct WebServer;
 impl WebServer {
     fn map_body(bot: String, secret: String, chunks: Vec<u8>) -> Response {
         //convert chunks to String
-        let body:String;
         match String::from_utf8(chunks) {
-            Ok(s) => { body = s; },
-            Err(e) => { return Response::new().with_status(StatusCode::InternalServerError).with_body(format!("Unable to convert request body to string: {}", e)); },
-        }
-
-        //load bot library
-        //this improves modularity
-        let reg = REGISTRY.clone();
-        let temp = reg.lock();
-        match temp {
-            Ok(mut plugin_registry) => match plugin_registry.load_plugin(bot.clone()) {
-                Ok(plugin) => {
-                    match plugin.run(secret, body) {
-                        Ok(out) => Response::new().with_status(StatusCode::Ok).with_body(out.to_string()),
-                        Err(e) => Response::new().with_status(StatusCode::InternalServerError).with_body(e),
+            Ok(body) => match serde_json::from_str(&body) {
+                Ok(body_value) => {
+                    //load bot library
+                    //this improves modularity
+                    let reg = REGISTRY.clone();
+                    let temp = reg.lock();
+                    match temp {
+                        Ok(mut plugin_registry) => match plugin_registry.load_plugin(bot.clone()) {
+                            Ok(plugin) => match plugin.run(secret, body_value) {
+                                Ok(out) => Response::new().with_status(StatusCode::Ok).with_body(out.to_string()),
+                                Err(e) => Response::new().with_status(StatusCode::InternalServerError).with_body(e),
+                            },
+                            Err(e) => Response::new().with_status(StatusCode::InternalServerError).with_body(e),
+                        },
+                        Err(e) => Response::new().with_status(StatusCode::InternalServerError).with_body(format!("Unable to lock plugin registry: {}", e)),
                     }
                 },
-                Err(e) => Response::new().with_status(StatusCode::InternalServerError).with_body(e),
+                Err(e) => Response::new().with_status(StatusCode::InternalServerError).with_body(format!("Syntax error on json request: {}", e)),
             },
-            Err(e) => Response::new().with_status(StatusCode::InternalServerError).with_body(format!("Unable to lock plugin registry: {}", e)),
+            Err(e) => Response::new().with_status(StatusCode::InternalServerError).with_body(format!("Unable to convert request body to string: {}", e)),
         }
     }
 }
