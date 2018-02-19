@@ -1,30 +1,37 @@
 extern crate dynamic_reload;
 extern crate notify;
 extern crate serde_json;
+extern crate toml;
 
 use std::sync::Arc;
 use std::sync::mpsc::{channel, Receiver, TryRecvError};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+use std::fs::File;
+use std::io::Read;
 
 use self::dynamic_reload::{DynamicReload, Search, Lib, UpdateState, Symbol, PlatformName};
 
 use self::notify::{RecommendedWatcher, Watcher, RecursiveMode, DebouncedEvent};
 
-use self::serde_json::value::Value;
+use self::serde_json::value::Value as JsonValue;
+
+use self::toml::Value as TomlValue;
 
 pub struct Plugin {
     name: String,
+    config: TomlValue,
     plugins: Vec<Arc<Lib>>,
 }
 
 impl Plugin {
-    pub fn new(name: String) -> Plugin {
-        Plugin {
-            name: name,
+    pub fn new(name: String) -> Result<Plugin, String> {
+        Ok(Plugin {
+            name: name.clone(),
+            config: Plugin::load_config(name)?,
             plugins: Vec::new()
-        }
+        })
     }
 
     fn add_plugin(&mut self, plugin: &Arc<Lib>) {
@@ -52,14 +59,14 @@ impl Plugin {
         }
     }
 
-    pub fn run(&self, secret: String, body: String) -> Result<Value, String> {
+    pub fn run(&self, secret: String, body: String) -> Result<JsonValue, String> {
         if self.plugins.len() > 0 {
             // In a real program you want to cache the symbol and not do it every time if your
             // application is performance critical
             match unsafe { self.plugins[0].lib.get(b"init_bot\0") } {
                 Ok(temp) => {
-                    let f: Symbol<extern "C" fn(secret: &str, body: &str) -> Result<Value, String>> = temp;
-                    f(&secret.clone(), &body.clone())
+                    let f: Symbol<extern "C" fn(config: TomlValue, secret: &str, body: &str) -> Result<JsonValue, String>> = temp;
+                    f(self.config, &secret.clone(), &body.clone())
                 },
                 Err(e) => Err(format!("Error getting Symbol for {}: {}", self.name, e)),
             }
@@ -68,12 +75,29 @@ impl Plugin {
             Err(format!("Lib {} not loaded", self.name))
         }
     }
+
+    fn load_config(lib: String) -> Result<TomlValue, String> {
+        let config_file = format!("config/{}.toml", lib);
+        match File::open(&config_file) {
+            Ok(mut toml) => {
+                let mut s = String::new();
+                match toml.read_to_string(&mut s) {
+                    Ok(_) => match toml::from_str(&s) {
+                        Ok(config) => Ok(config),
+                        Err(e) => Err(format!("Syntax error on Toml file {}: {}", config_file, e)),
+                    },
+                    Err(e) => Err(format!("Unable to read Toml file {}: {}", config_file, e)),
+                }
+            },
+            Err(e) => Err(format!("File {} not found: {}", config_file, e)),
+        }
+    }
 }
 
 pub struct PluginRegistry {
     handler: DynamicReload<'static>,
     libs: HashMap<String, Plugin>,
-    watcher: RecommendedWatcher,
+//     watcher: RecommendedWatcher,
     watch_recv: Receiver<DebouncedEvent>,
 }
 
@@ -91,7 +115,7 @@ impl PluginRegistry {
         PluginRegistry {
             handler: DynamicReload::new(Some(vec!["bots"]), Some("tmp"), Search::Default),
             libs: HashMap::new(),
-            watcher: watcher,
+//             watcher: watcher,
             watch_recv: rx,
         }
     }
@@ -100,7 +124,7 @@ impl PluginRegistry {
         loop {
             match self.watch_recv.try_recv() {
                 Ok(event) => println!("{:?}", event),
-                Err(e) => if e == TryRecvError::Empty { break; } else { println!("watch error: {:?}", e); },
+                Err(e) => { println!("watch error: {:?}", e); if e == TryRecvError::Empty { break; } else { println!("watch error: {:?}", e); } },
             }
         }
 
@@ -116,7 +140,7 @@ impl PluginRegistry {
 
         match self.handler.add_library(&lib, PlatformName::Yes) {
             Ok(plug) => {
-                self.libs.insert(lib.clone(), Plugin::new(lib.clone()));
+                self.libs.insert(lib.clone(), Plugin::new(lib.clone())?);
                 match self.libs.get_mut(&lib) {
                     Some(mut plugin) => {
                         plugin.add_plugin(&plug);

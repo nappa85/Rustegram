@@ -4,25 +4,24 @@ extern crate serde_json;
 
 use client_lib::{Bot, Telegram};
 
-use std::fs::File;
-use std::io::Read;
+use serde_json::value::Value as JsonValue;
 
-use serde_json::value::Value;
+use toml::Value as TomlValue,
 
 struct BlaspemyBot {
     api: Telegram,
-    config: toml::Value,
+    config: TomlValue,
 }
 
 impl Bot for BlaspemyBot {
-    fn new(api: Telegram, cfg: toml::Value) -> BlaspemyBot {
+    fn new(api: Telegram, cfg: TomlValue) -> BlaspemyBot {
         BlaspemyBot {
             api: api,
             config: cfg,
         }
     }
 
-    fn dispatch(&self, method: &str, json: Value) -> Result<Value, String> {
+    fn dispatch(&self, method: &str, json: JsonValue) -> Result<JsonValue, String> {
         match method {
             "about" => self.about(json),
             "help" => self.help(json),
@@ -35,29 +34,29 @@ impl Bot for BlaspemyBot {
 }
 
 impl BlaspemyBot {
-    fn about(&self, json: Value) -> Result<Value, String> {
+    fn about(&self, json: JsonValue) -> Result<JsonValue, String> {
         Err(String::from("TODO"))
     }
 
-    fn help(&self, json: Value) -> Result<Value, String> {
+    fn help(&self, json: JsonValue) -> Result<JsonValue, String> {
         Err(String::from("TODO"))
     }
 
-    fn swear(&self, json: Value) -> Result<Value, String> {
+    fn swear(&self, json: JsonValue) -> Result<JsonValue, String> {
         Err(String::from("TODO"))
     }
 
-    fn swearto(&self, json: Value) -> Result<Value, String> {
+    fn swearto(&self, json: JsonValue) -> Result<JsonValue, String> {
         Err(String::from("TODO"))
     }
 
-    fn blackhumor(&self, json: Value) -> Result<Value, String> {
+    fn blackhumor(&self, json: JsonValue) -> Result<JsonValue, String> {
         Err(String::from("TODO"))
     }
 }
 
 #[no_mangle]
-pub extern fn init_bot(secret: &str, body: &str) -> Result<Value, String> {
+pub extern fn init_bot(config: TomlValue, secret: &str, body: &str) -> Result<JsonValue, String> {
     let config_file = "config/BlasphemyBot.toml";
     match File::open(config_file) {
         Ok(mut toml) => {
@@ -88,34 +87,8 @@ pub extern fn init_bot(secret: &str, body: &str) -> Result<Value, String> {
 mod tests {
     use super::{toml, init_bot};
 
-    use std::fs::File;
-    use std::io::Read;
-
-    use serde_json::value::Value;
-
     #[test]
     fn it_works() {
-        let er:Result<Value, String>;
-        let config_file = "config/BlasphemyBot.toml";
-        match File::open(config_file) {
-            Ok(mut toml) => {
-                let mut s = String::new();
-                match toml.read_to_string(&mut s) {
-                    Ok(_) => {
-                        match toml::from_str(&s) {
-                            Ok(temp) => {
-                                let config:toml::Value = temp;
-                                er = init_bot(config["SECRET"].as_str().unwrap(), "{}");
-                            },
-                            Err(e) => { er = Err(format!("Syntax error on Toml file: {}", e)); },
-                        }
-                    },
-                    Err(e) => { er = Err(format!("Unable to read Toml file: {}", e)); },
-                }
-            },
-            Err(e) => { er = Err(format!("File {} not found: {}", config_file, e)); },
-        }
-
-        assert_eq!(er, Err(String::from("TODO")));
+        assert_eq!(init_bot(config, config["SECRET"].as_str().unwrap(), "{}"), Err(String::from("TODO")));
     }
 }
