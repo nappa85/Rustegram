@@ -359,6 +359,7 @@ pub trait Bot {
     fn new(api: Telegram, cfg: TomlValue) -> Self;
 
     fn parse(&self, json: JsonValue) -> Result<JsonValue, String> {
+        println!("C");
         Err(String::from("TODO"))
     }
 

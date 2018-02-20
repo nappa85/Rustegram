@@ -56,9 +56,13 @@ impl BlaspemyBot {
 }
 
 #[no_mangle]
-pub extern fn init_bot(config: TomlValue, secret: &str, body: JsonValue) -> Result<JsonValue, String> {
-    match Telegram::init_bot(BlaspemyBot::new, secret, config) {
-        Ok(bot) => bot.parse(body),
+pub extern fn init_bot(config: &TomlValue, secret: &str, body: &JsonValue) -> Result<JsonValue, String> {
+    println!("A");
+    match Telegram::init_bot(BlaspemyBot::new, secret, config.clone()) {
+        Ok(bot) => {
+            println!("B");
+            bot.parse(body.clone())
+        },
         Err(e) => Err(format!("Error during bot init: {}", e)),
     }
 }

@@ -65,8 +65,12 @@ impl Plugin {
             // application is performance critical
             match unsafe { self.plugins[0].lib.get(b"init_bot\0") } {
                 Ok(temp) => {
-                    let f: Symbol<extern "C" fn(config: TomlValue, secret: &str, body: JsonValue) -> Result<JsonValue, String>> = temp;
-                    f(self.config.clone(), &secret.clone(), body)//TODO: test on mac
+                    let f: Symbol<extern "C" fn(config: &TomlValue, secret: &str, body: &JsonValue) -> Result<JsonValue, String>> = temp;
+                    //on mac it goes "segmentation fault" returning from the third call
+                    println!("DEBUG: before");
+                    let res = f(&self.config.clone(), &secret.clone(), &body.clone());
+                    println!("DEBUG: after");
+                    res
                 },
                 Err(e) => Err(format!("Error getting Symbol for {}: {}", self.name, e)),
             }
@@ -124,7 +128,7 @@ impl PluginRegistry {
         loop {
             match self.watch_recv.try_recv() {
                 Ok(event) => println!("{:?}", event),
-                Err(e) => { println!("watch error: {:?}", e); if e == TryRecvError::Empty { break; } else { println!("watch error: {:?}", e); } },
+                Err(e) => if e == TryRecvError::Empty { break; } else { println!("watch error: {:?}", e) },
             }
         }
 
