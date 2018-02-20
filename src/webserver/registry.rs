@@ -76,20 +76,29 @@ impl Plugin {
         }
     }
 
+    fn set_config(&mut self, lib: String) -> Result<(), String> {
+        self.config = Plugin::load_config(lib.clone())?;
+        println!("Reloaded config for {}", lib);
+        Ok(())
+    }
+
     fn load_config(lib: String) -> Result<TomlValue, String> {
-        let config_file = format!("config/{}.toml", lib);
-        match File::open(&config_file) {
+        let mut config_file = PathBuf::new();
+        config_file.push("config");
+        config_file.push(lib);
+        config_file.set_extension("toml");
+        match File::open(config_file.clone()) {
             Ok(mut toml) => {
                 let mut s = String::new();
                 match toml.read_to_string(&mut s) {
                     Ok(_) => match toml::from_str(&s) {
                         Ok(config) => Ok(config),
-                        Err(e) => Err(format!("Syntax error on Toml file {}: {}", config_file, e)),
+                        Err(e) => Err(format!("Syntax error on Toml file {:?}: {:?}", config_file, e)),
                     },
-                    Err(e) => Err(format!("Unable to read Toml file {}: {}", config_file, e)),
+                    Err(e) => Err(format!("Unable to read Toml file {:?}: {:?}", config_file, e)),
                 }
             },
-            Err(e) => Err(format!("File {} not found: {}", config_file, e)),
+            Err(e) => Err(format!("File {:?} not found: {:?}", config_file, e)),
         }
     }
 }
@@ -97,7 +106,7 @@ impl Plugin {
 pub struct PluginRegistry {
     handler: DynamicReload<'static>,
     libs: HashMap<String, Plugin>,
-//     watcher: RecommendedWatcher,
+    watcher: RecommendedWatcher,
     watch_recv: Receiver<DebouncedEvent>,
 }
 
@@ -107,7 +116,7 @@ impl PluginRegistry {
 
         //those expect are fine, if it fails we want to panic!
         let mut watcher: RecommendedWatcher = Watcher::new(tx, Duration::from_secs(2)).expect("Unable to init config watcher");
-        watcher.watch(Path::new("config/"), RecursiveMode::NonRecursive).expect("Unable to watch config dir");
+        watcher.watch(Path::new("config"), RecursiveMode::NonRecursive).expect("Unable to watch config dir");
 
         // Setup the reload handler. A temporary directory will be created inside the tmp folder
         // where plugins will be loaded from. That is because on some OS:es loading a shared lib
@@ -115,7 +124,7 @@ impl PluginRegistry {
         PluginRegistry {
             handler: DynamicReload::new(Some(vec!["bots"]), Some("tmp"), Search::Default),
             libs: HashMap::new(),
-//             watcher: watcher,
+            watcher: watcher,
             watch_recv: rx,
         }
     }
@@ -123,7 +132,23 @@ impl PluginRegistry {
     pub fn load_plugin(&mut self, lib: String) -> Result<&Plugin, String> {
         loop {
             match self.watch_recv.try_recv() {
-                Ok(event) => println!("{:?}", event),
+                Ok(event) => match event {
+                    DebouncedEvent::Create(path) | DebouncedEvent::Write(path) => match path.as_path().file_stem() {
+                        Some(stem) => {
+                            match stem.to_str() {
+                                Some(filename) => if self.libs.contains_key(filename) {
+                                    match self.libs.get_mut(filename) {
+                                        Some(mut plugin) => plugin.set_config(String::from(filename))?,
+                                        None => { return Err(format!("Plugin disappeared: {}", filename)); },
+                                    }
+                                },
+                                None => {},
+                            }
+                        },
+                        None => {},
+                    },
+                    _ => {},
+                },
                 Err(e) => if e == TryRecvError::Empty { break; } else { println!("watch error: {:?}", e) },
             }
         }
