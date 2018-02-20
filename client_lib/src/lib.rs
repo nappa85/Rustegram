@@ -1,7 +1,10 @@
 // #[macro_use]
 // extern crate lazy_static;
-extern crate reqwest;
+#[macro_use]
+extern crate serde_derive;
+extern crate serde;
 extern crate serde_json;
+extern crate reqwest;
 extern crate toml;
 
 use std::collections::HashMap;
@@ -12,6 +15,8 @@ use reqwest::Client;
 use serde_json::value::Value as JsonValue;
 
 use toml::Value as TomlValue;
+
+pub mod entities;
 
 //pub mod session;
 
