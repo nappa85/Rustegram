@@ -65,12 +65,8 @@ impl Plugin {
             // application is performance critical
             match unsafe { self.plugins[0].lib.get(b"init_bot\0") } {
                 Ok(temp) => {
-                    let f: Symbol<extern "C" fn(config: &TomlValue, secret: &str, body: &JsonValue) -> Result<JsonValue, String>> = temp;
-                    //on mac it goes "segmentation fault" returning from the third call
-                    println!("DEBUG: before");
-                    let res = f(&self.config.clone(), &secret.clone(), &body.clone());
-                    println!("DEBUG: after");
-                    res
+                    let f: Symbol<extern "C" fn(config: *const TomlValue, secret: &str, body: *const JsonValue) -> Result<JsonValue, String>> = temp;
+                    f(Box::into_raw(Box::new(self.config.clone())), &secret, Box::into_raw(Box::new(body)))
                 },
                 Err(e) => Err(format!("Error getting Symbol for {}: {}", self.name, e)),
             }
