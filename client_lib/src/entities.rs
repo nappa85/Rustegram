@@ -17,6 +17,35 @@ pub struct Request {
     callback_query: Option<CallbackQuery>,
 }
 
+impl Request {
+    pub fn get_type(&self) -> Result<RequestType, String> {
+        if !self.message.is_none() {
+            return Ok(RequestType::Message);
+        }
+        if !self.edited_message.is_none() {
+            return Ok(RequestType::EditedMesage);
+        }
+        if !self.inline_query.is_none() {
+            return Ok(RequestType::InlineQuery);
+        }
+        if !self.chosen_inline_result.is_none() {
+            return Ok(RequestType::ChosenInlineResult);
+        }
+        if !self.callback_query.is_none() {
+            return Ok(RequestType::CallbackQuery);
+        }
+        Err(String::from("Unrecognized request type"))
+    }
+}
+
+pub enum RequestType {
+    Message,
+    EditedMesage,
+    InlineQuery,
+    ChosenInlineResult,
+    CallbackQuery,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct User {
     id: i64,

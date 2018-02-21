@@ -2,6 +2,7 @@ extern crate dynamic_reload;
 extern crate notify;
 extern crate serde_json;
 extern crate toml;
+extern crate client_lib;
 
 use std::sync::Arc;
 use std::sync::mpsc::{channel, Receiver, TryRecvError};
@@ -18,6 +19,8 @@ use self::notify::{RecommendedWatcher, Watcher, RecursiveMode, DebouncedEvent};
 use self::serde_json::value::Value as JsonValue;
 
 use self::toml::Value as TomlValue;
+
+use self::client_lib::entities::Request;
 
 pub struct Plugin {
     name: String,
@@ -59,14 +62,14 @@ impl Plugin {
         }
     }
 
-    pub fn run(&self, secret: String, body: JsonValue) -> Result<JsonValue, String> {
+    pub fn run(&self, secret: String, request: Request) -> Result<JsonValue, String> {
         if self.plugins.len() > 0 {
             // In a real program you want to cache the symbol and not do it every time if your
             // application is performance critical
             match unsafe { self.plugins[0].lib.get(b"init_bot\0") } {
                 Ok(temp) => {
-                    let f: Symbol<extern "C" fn(config: *const TomlValue, secret: &str, body: *const JsonValue) -> Result<JsonValue, String>> = temp;
-                    f(Box::into_raw(Box::new(self.config.clone())), &secret, Box::into_raw(Box::new(body)))
+                    let f: Symbol<extern "C" fn(config: *const TomlValue, secret: &str, request: *const Request) -> Result<JsonValue, String>> = temp;
+                    f(Box::into_raw(Box::new(self.config.clone())), &secret, Box::into_raw(Box::new(request)))
                 },
                 Err(e) => Err(format!("Error getting Symbol for {}: {}", self.name, e)),
             }

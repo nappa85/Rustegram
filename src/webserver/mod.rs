@@ -2,6 +2,7 @@ extern crate hyper;
 extern crate futures;
 extern crate regex;
 extern crate serde_json;
+extern crate client_lib;
 
 use std::sync::{Arc, Mutex};
 
@@ -12,6 +13,8 @@ use self::hyper::{Method, StatusCode};
 use self::hyper::server::{Request, Response, Service};
 
 use self::regex::Regex;
+
+use self::client_lib::entities::Request as TelegramRequest;
 
 mod registry;
 
@@ -26,15 +29,15 @@ impl WebServer {
     fn map_body(bot: String, secret: String, chunks: Vec<u8>) -> Response {
         //convert chunks to String
         match String::from_utf8(chunks) {
-            Ok(body) => match serde_json::from_str(&body) {
-                Ok(body_value) => {
+            Ok(body) => match serde_json::from_str::<TelegramRequest>(&body) {
+                Ok(request) => {
                     //load bot library
                     //this improves modularity
                     let reg = REGISTRY.clone();
                     let temp = reg.lock();
                     match temp {
                         Ok(mut plugin_registry) => match plugin_registry.load_plugin(bot.clone()) {
-                            Ok(plugin) => match plugin.run(secret, body_value) {
+                            Ok(plugin) => match plugin.run(secret, request) {
                                 Ok(out) => Response::new().with_status(StatusCode::Ok).with_body(out.to_string()),
                                 Err(e) => Response::new().with_status(StatusCode::InternalServerError).with_body(e),
                             },

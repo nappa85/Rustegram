@@ -320,15 +320,28 @@ impl Telegram {
 pub trait Bot {
     fn new(api: Telegram, cfg: TomlValue) -> Self;
 
-    fn parse(&self, json: JsonValue) -> Result<JsonValue, String> {
-        //Err(String::from("TODO"))
-        match serde_json::from_str("{}") {
-            Ok(value) => Ok(value),
-            Err(e) => Err(format!("Error: {}", e)),
-        }
+    fn parse(&self, request: &entities::Request) -> Result<JsonValue, String> {
+        let (method, args) = match request.get_type()? {
+            entities::RequestType::Message => self.parse_message(request)?,
+            entities::RequestType::EditedMesage => self.parse_edited_message(request)?,
+            entities::RequestType::InlineQuery => self.parse_inline_query(request)?,
+            entities::RequestType::ChosenInlineResult => self.parse_chosen_inline_result(request)?,
+            entities::RequestType::CallbackQuery => self.parse_callback_query(request)?,
+        };
+        self.dispatch(&method, args, request)
     }
 
-    fn dispatch(&self, method: &str, json: JsonValue) -> Result<JsonValue, String>;
+    fn parse_message(&self, request: &entities::Request) -> Result<(String, Vec<String>), String>;
+
+    fn parse_edited_message(&self, request: &entities::Request) -> Result<(String, Vec<String>), String>;
+
+    fn parse_inline_query(&self, request: &entities::Request) -> Result<(String, Vec<String>), String>;
+
+    fn parse_chosen_inline_result(&self, request: &entities::Request) -> Result<(String, Vec<String>), String>;
+
+    fn parse_callback_query(&self, request: &entities::Request) -> Result<(String, Vec<String>), String>;
+
+    fn dispatch(&self, method: &str, args: Vec<String>, request: &entities::Request) -> Result<JsonValue, String>;
 }
 
 #[cfg(test)]
