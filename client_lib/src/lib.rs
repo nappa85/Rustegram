@@ -22,62 +22,11 @@ pub mod entities;
 
 pub enum Param<'a> {
     Value(&'a str),
-    File(&'a str),
+    File(entities::InputFile),
     Flag(bool),
-    Parse(ParseMode),
-    Markup(Keyboard),
-    Action(ChatAction),
-}
-
-pub enum ParseMode {
-    Markdown,
-    HTML,
-}
-
-impl ToString for ParseMode {
-    fn to_string(&self) -> String {
-        match *self {
-            ParseMode::Markdown => "Markdown".to_owned(),
-            ParseMode::HTML => "HTML".to_owned(),
-        }
-    }
-}
-
-pub struct Keyboard {
-    force_reply: bool,
-    selective: bool,
-}
-
-impl ToString for Keyboard {
-    fn to_string(&self) -> String {
-        "{\"force_reply\":".to_owned() + (if self.force_reply { "true" } else { "false" }) + ",\"selective\":" + (if self.selective { "true" } else { "false" }) + "}"
-    }
-}
-
-pub enum ChatAction {
-    Typing,
-    UploadPhoto,
-    RecordVideo,
-    UploadVideo,
-    RecordAudio,
-    UploadAudio,
-    UploadDocument,
-    FindLocation,
-}
-
-impl ToString for ChatAction {
-    fn to_string(&self) -> String {
-        (match *self {
-            ChatAction::Typing => "typing",
-            ChatAction::UploadPhoto => "upload_photo",
-            ChatAction::RecordVideo => "record_video",
-            ChatAction::UploadVideo => "upload_video",
-            ChatAction::RecordAudio => "record_audio",
-            ChatAction::UploadAudio => "upload_audio",
-            ChatAction::UploadDocument => "upload_document",
-            ChatAction::FindLocation => "find_location",
-        }).to_owned()
-    }
+    ParseMode(entities::ParseMode),
+    ReplyMarkup(entities::ReplyMarkup),
+    ChatAction(entities::ChatAction),
 }
 
 pub struct Telegram {
@@ -112,7 +61,7 @@ impl Telegram {
         }
     }
 
-    pub fn send_message(&self, chat_id: &str, message: &str, reply_id: Option<&str>, force_reply: Option<bool>, preview: Option<bool>, parse_mode: Option<ParseMode>, keyboard: Option<Keyboard>) -> Result<JsonValue, String> {
+    pub fn send_message(&self, chat_id: &str, message: &str, reply_id: Option<&str>, preview: Option<bool>, parse_mode: Option<entities::ParseMode>, reply_markup: Option<entities::ReplyMarkup>) -> Result<JsonValue, String> {
         let mut params = HashMap::new();
         params.insert("chat_id", Param::Value(chat_id));
         params.insert("message", Param::Value(message));
@@ -124,15 +73,8 @@ impl Telegram {
             None => {},
         }
 
-        match force_reply {
-            Some(true) => {
-                params.insert("reply_markup", Param::Markup(Keyboard { force_reply: true, selective: true }));
-            },
-            _ => {},
-        }
-
         match preview {
-            Some(true) => {},
+            Some(false) => {},
             _ => {
                 params.insert("disable_web_page_preview", Param::Flag(true));
             },
@@ -140,14 +82,14 @@ impl Telegram {
 
         match parse_mode {
             Some(value) => {
-                params.insert("parse_mode", Param::Parse(value));
+                params.insert("parse_mode", Param::ParseMode(value));
             },
             None => {},
         }
 
-        match keyboard {
+        match reply_markup {
             Some(value) => {
-                params.insert("reply_markup", Param::Markup(value));
+                params.insert("reply_markup", Param::ReplyMarkup(value));
             },
             None => {},
         }
@@ -186,7 +128,7 @@ impl Telegram {
         }
     }
 
-    pub fn send_photo(&self, chat_id: &str, photo: &str, caption: Option<&str>, reply_id: Option<&str>, force_reply: Option<bool>, preview: Option<bool>) -> Result<JsonValue, String> {
+    pub fn send_photo(&self, chat_id: &str, photo: entities::InputFile, caption: Option<&str>, reply_id: Option<&str>, preview: Option<bool>, reply_markup: Option<entities::ReplyMarkup>) -> Result<JsonValue, String> {
         let mut params = HashMap::new();
         params.insert("chat_id", Param::Value(chat_id));
         params.insert("photo", Param::File(photo));
@@ -205,24 +147,24 @@ impl Telegram {
             None => {},
         }
 
-        match force_reply {
-            Some(true) => {
-                params.insert("reply_markup", Param::Markup(Keyboard { force_reply: true, selective: true }));
-            },
-            _ => {},
-        }
-
         match preview {
-            Some(true) => {},
+            Some(false) => {},
             _ => {
                 params.insert("disable_web_page_preview", Param::Flag(true));
             },
         }
 
+        match reply_markup {
+            Some(value) => {
+                params.insert("reply_markup", Param::ReplyMarkup(value));
+            },
+            None => {},
+        }
+
         self.call_telegram("sendPhoto", params)
     }
 
-    pub fn send_audio(&self, chat_id: &str, audio: &str, duration: Option<&str>, performer: Option<&str>, title: Option<&str>, reply_id: Option<&str>, force_reply: Option<bool>) -> Result<JsonValue, String> {
+    pub fn send_audio(&self, chat_id: &str, audio: entities::InputFile, duration: Option<&str>, performer: Option<&str>, title: Option<&str>, reply_id: Option<&str>, reply_markup: Option<entities::ReplyMarkup>) -> Result<JsonValue, String> {
         let mut params = HashMap::new();
         params.insert("chat_id", Param::Value(chat_id));
         params.insert("audio", Param::File(audio));
@@ -255,17 +197,17 @@ impl Telegram {
             None => {},
         }
 
-        match force_reply {
-            Some(true) => {
-                params.insert("reply_markup", Param::Markup(Keyboard { force_reply: true, selective: true }));
+        match reply_markup {
+            Some(value) => {
+                params.insert("reply_markup", Param::ReplyMarkup(value));
             },
-            _ => {},
+            None => {},
         }
 
         self.call_telegram("sendAudio", params)
     }
 
-    pub fn send_voice(&self, chat_id: &str, voice: &str, duration: Option<&str>, reply_id: Option<&str>, force_reply: Option<bool>) -> Result<JsonValue, String> {
+    pub fn send_voice(&self, chat_id: &str, voice: entities::InputFile, duration: Option<&str>, reply_id: Option<&str>, reply_markup: Option<entities::ReplyMarkup>) -> Result<JsonValue, String> {
         let mut params = HashMap::new();
         params.insert("chat_id", Param::Value(chat_id));
         params.insert("voice", Param::File(voice));
@@ -284,17 +226,17 @@ impl Telegram {
             None => {},
         }
 
-        match force_reply {
-            Some(true) => {
-                params.insert("reply_markup", Param::Markup(Keyboard { force_reply: true, selective: true }));
+        match reply_markup {
+            Some(value) => {
+                params.insert("reply_markup", Param::ReplyMarkup(value));
             },
-            _ => {},
+            None => {},
         }
 
         self.call_telegram("sendVoice", params)
     }
 
-    pub fn send_document(&self, chat_id: &str, document: &str, reply_id: Option<&str>, force_reply: Option<bool>) -> Result<JsonValue, String> {
+    pub fn send_document(&self, chat_id: &str, document: entities::InputFile, reply_id: Option<&str>, reply_markup: Option<entities::ReplyMarkup>) -> Result<JsonValue, String> {
         let mut params = HashMap::new();
         params.insert("chat_id", Param::Value(chat_id));
         params.insert("document", Param::File(document));
@@ -306,20 +248,20 @@ impl Telegram {
             None => {},
         }
 
-        match force_reply {
-            Some(true) => {
-                params.insert("reply_markup", Param::Markup(Keyboard { force_reply: true, selective: true }));
+        match reply_markup {
+            Some(value) => {
+                params.insert("reply_markup", Param::ReplyMarkup(value));
             },
-            _ => {},
+            None => {},
         }
 
         self.call_telegram("sendDocument", params)
     }
 
-    pub fn send_chat_action(&self, chat_id: &str, action: ChatAction) -> Result<JsonValue, String> {
+    pub fn send_chat_action(&self, chat_id: &str, action: entities::ChatAction) -> Result<JsonValue, String> {
         let mut params = HashMap::new();
         params.insert("chat_id", Param::Value(chat_id));
-        params.insert("action", Param::Action(action));
+        params.insert("action", Param::ChatAction(action));
 
         self.call_telegram("sendChatAction", params)
     }
@@ -345,14 +287,29 @@ impl Telegram {
         for (name, value) in params {
             form = match value {
                 Param::Value(s) => form.text::<String, String>(name.to_owned(), s.to_owned()),
-                Param::File(s) => match form.file::<String, String>(name.to_owned(), s.to_owned()) {
-                    Err(e) => { return Err(format!("Unable to add file to request: {}", e)); },
-                    Ok(f) => f,
+                Param::File(v) => match v {
+                    entities::InputFile::File(s) => match form.file::<String, String>(name.to_owned(), s.to_owned()) {
+                        Ok(f) => f,
+                        Err(e) => { return Err(format!("Unable to add file field {} to request: {:?}", name, e)); },
+                    },
+                    entities::InputFile::FileId(s) | entities::InputFile::Url(s) => form.text::<String, String>(name.to_owned(), s.to_owned()),
                 },
-                Param::Flag(b) => form.text::<String, String>(name.to_owned(), (if b { "true" } else { "false" }).to_owned()),
-                Param::Parse(ref p) => form.text::<String, String>(name.to_owned(), p.to_string()),
-                Param::Markup(ref k) => form.text::<String, String>(name.to_owned(), k.to_string()),
-                Param::Action(ref a) => form.text::<String, String>(name.to_owned(), a.to_string()),
+                Param::Flag(ref v) => match serde_json::to_string(v) {
+                    Ok(value) => form.text::<String, String>(name.to_owned(), value.to_owned()),
+                    Err(e) => { return Err(format!("Unable to add flag field {} to request: {:?}", name, e)); },
+                },
+                Param::ParseMode(ref v) => match serde_json::to_string(v) {
+                    Ok(value) => form.text::<String, String>(name.to_owned(), value.to_owned()),
+                    Err(e) => { return Err(format!("Unable to add parse_mode field {} to request: {:?}", name, e)); },
+                },
+                Param::ReplyMarkup(ref v) => match serde_json::to_string(v) {
+                    Ok(value) => form.text::<String, String>(name.to_owned(), value.to_owned()),
+                    Err(e) => { return Err(format!("Unable to add reply_markup field {} to request: {:?}", name, e)); },
+                },
+                Param::ChatAction(ref v) => match serde_json::to_string(v) {
+                    Ok(value) => form.text::<String, String>(name.to_owned(), value.to_owned()),
+                    Err(e) => { return Err(format!("Unable to add chat_action field {} to request: {:?}", name, e)); },
+                },
             };
         }
 
@@ -382,7 +339,7 @@ mod tests {
     #[test]
     fn it_works() {
         let client = Telegram::new("test");
-        let res = client.send_message("123", "prova", None, None, None, None, None);
+        let res = client.send_message("123", "prova", None, None, None, None);
 
         assert_eq!(
             serde_json::from_str::<Value>("{\"ok\":false,\"error_code\":404,\"description\":\"Not Found\"}").expect("Unable to json encode test string"),
