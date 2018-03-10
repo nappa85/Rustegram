@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::fs::File;
 use std::io::Read;
+use std::sync::RwLock;
 
 use self::dynamic_reload::{DynamicReload, Search, Lib, UpdateState, Symbol, PlatformName};
 
@@ -24,7 +25,8 @@ use self::client_lib::entities::Request;
 
 pub struct Plugin {
     name: String,
-    config: TomlValue,
+    config: Arc<RwLock<TomlValue>>,
+    session: Arc<RwLock<HashMap<String, JsonValue>>>,
     plugins: Vec<Arc<Lib>>,
 }
 
@@ -32,7 +34,8 @@ impl Plugin {
     pub fn new(name: String) -> Result<Plugin, String> {
         Ok(Plugin {
             name: name.clone(),
-            config: Plugin::load_config(name)?,
+            config: Arc::new(RwLock::new(Plugin::load_config(name)?)),
+            session: Arc::new(RwLock::new(HashMap::new())),
             plugins: Vec::new()
         })
     }
@@ -68,10 +71,10 @@ impl Plugin {
             // application is performance critical
             match unsafe { self.plugins[0].lib.get(b"init_bot\0") } {
                 Ok(temp) => {
-                    let f: Symbol<extern "C" fn(config: *const TomlValue, secret: &str, request: *const Request) -> Result<JsonValue, String>> = temp;
-                    f(Box::into_raw(Box::new(self.config.clone())), &secret, Box::into_raw(Box::new(request)))
+                    let f: Symbol<extern "C" fn(config: *const Arc<RwLock<TomlValue>>, session: *const Arc<RwLock<HashMap<String, JsonValue>>>, secret: &str, request: *const Request) -> Result<JsonValue, String>> = temp;
+                    f(Box::into_raw(Box::new(self.config.clone())), Box::into_raw(Box::new(self.session.clone())), &secret, Box::into_raw(Box::new(request)))
                 },
-                Err(e) => Err(format!("Error getting Symbol for {}: {}", self.name, e)),
+                Err(e) => Err(format!("Error getting Symbol for {}: {:?}", self.name, e)),
             }
         }
         else {
@@ -79,10 +82,15 @@ impl Plugin {
         }
     }
 
-    fn set_config(&mut self, lib: String) -> Result<(), String> {
-        self.config = Plugin::load_config(lib.clone())?;
-        println!("Reloaded config for {}", lib);
-        Ok(())
+    fn set_config(&self, lib: String) -> Result<(), String> {
+        match self.config.write() {
+            Ok(mut config) => {
+                *config = Plugin::load_config(lib.clone())?;
+                println!("Reloaded config for {}", lib);
+                Ok(())
+            },
+            Err(e) => Err(format!("{:?}", e)),
+        }
     }
 
     fn load_config(lib: String) -> Result<TomlValue, String> {
@@ -109,7 +117,7 @@ impl Plugin {
 pub struct PluginRegistry {
     handler: DynamicReload<'static>,
     libs: HashMap<String, Plugin>,
-    watcher: RecommendedWatcher,
+    _watcher: RecommendedWatcher,
     watch_recv: Receiver<DebouncedEvent>,
 }
 
@@ -127,12 +135,12 @@ impl PluginRegistry {
         PluginRegistry {
             handler: DynamicReload::new(Some(vec!["bots"]), Some("tmp"), Search::Default),
             libs: HashMap::new(),
-            watcher: watcher,
+            _watcher: watcher,
             watch_recv: rx,
         }
     }
 
-    pub fn load_plugin(&mut self, lib: String) -> Result<&Plugin, String> {
+    pub fn load_plugin(&mut self, lib: String) -> Result<&mut Plugin, String> {
         loop {
             match self.watch_recv.try_recv() {
                 Ok(event) => match event {
@@ -140,8 +148,8 @@ impl PluginRegistry {
                         Some(stem) => {
                             match stem.to_str() {
                                 Some(filename) => if self.libs.contains_key(filename) {
-                                    match self.libs.get_mut(filename) {
-                                        Some(mut plugin) => plugin.set_config(String::from(filename))?,
+                                    match self.libs.get(filename) {
+                                        Some(plugin) => plugin.set_config(String::from(filename))?,
                                         None => { return Err(format!("Plugin disappeared: {}", filename)); },
                                     }
                                 },

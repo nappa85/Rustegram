@@ -8,6 +8,8 @@ extern crate reqwest;
 extern crate toml;
 
 use std::collections::HashMap;
+use std::sync::Arc;
+use std::sync::RwLock;
 
 use reqwest::multipart::Form;
 use reqwest::Client;
@@ -35,22 +37,25 @@ pub struct Telegram {
 }
 
 impl Telegram {
-    pub fn init_bot<B: Bot, F>(constructor: F, secret: &str, config: TomlValue) -> Result<B, String>
-        where F: Fn(Telegram, TomlValue) -> B
+    pub fn init_bot<B, F>(constructor: F, secret: &str, config: &Arc<RwLock<TomlValue>>, session: &Arc<RwLock<HashMap<String, JsonValue>>>) -> Result<B, String>
+        where F: Fn(Telegram, &Arc<RwLock<TomlValue>>, &Arc<RwLock<HashMap<String, JsonValue>>>) -> B,
+            B: Bot
     {
-        match config["SECRET"].as_str() {
-            Some(conf_secret) => {
-                if secret == conf_secret {
-                    match config["HTTP_TOKEN"].as_str() {
-                        Some(token) => Ok(constructor(Telegram::new(token), config.clone())),
+        match config.read() {
+            Ok(cnf) => match cnf["SECRET"].as_str() {
+                Some(cnf_secret) => {
+                    if secret != cnf_secret {
+                        return Err(String::from("Secret mismatch"));
+                    }
+
+                    match cnf["HTTP_TOKEN"].as_str() {
+                        Some(cnf_token) => Ok(constructor(Telegram::new(cnf_token), config, session)),
                         None => Err(String::from("Error interpreting HTTP_TOKEN config value")),
                     }
-                }
-                else {
-                    Err(String::from("Secret mismatch"))
-                }
+                },
+                None => Err(String::from("Error interpreting SECRET config value")),
             },
-            None => Err(String::from("Error interpreting SECRET config value")),
+            Err(e) => Err(format!("Error read locking configuration: {:?}", e)),
         }
     }
 
@@ -318,7 +323,7 @@ impl Telegram {
 }
 
 pub trait Bot {
-    fn new(api: Telegram, cfg: TomlValue) -> Self;
+    fn new(api: Telegram, config: &Arc<RwLock<TomlValue>>, session: &Arc<RwLock<HashMap<String, JsonValue>>>) -> Self;
 
     fn parse(&self, request: &entities::Request) -> Result<JsonValue, String> {
         let (method, args) = match request.get_type()? {

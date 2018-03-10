@@ -2,6 +2,10 @@ extern crate client_lib;
 extern crate toml;
 extern crate serde_json;
 
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::sync::RwLock;
+
 use client_lib::{Bot, Telegram};
 use client_lib::entities::Request;
 
@@ -11,14 +15,16 @@ use toml::Value as TomlValue;
 
 struct BlaspemyBot {
     api: Telegram,
-    config: TomlValue,
+    config: Arc<RwLock<TomlValue>>,
+    session: Arc<RwLock<HashMap<String, JsonValue>>>,
 }
 
 impl Bot for BlaspemyBot {
-    fn new(api: Telegram, cfg: TomlValue) -> BlaspemyBot {
+    fn new(api: Telegram, config: &Arc<RwLock<TomlValue>>, session: &Arc<RwLock<HashMap<String, JsonValue>>>) -> BlaspemyBot {
         BlaspemyBot {
             api: api,
-            config: cfg,
+            config: config.clone(),
+            session: session.clone(),
         }
     }
 
@@ -60,38 +66,42 @@ impl Bot for BlaspemyBot {
 
 impl BlaspemyBot {
     fn about(&self, request: &Request) -> Result<JsonValue, String> {
-        Err(String::from("TODO"))
+        Err(String::from("about command"))
     }
 
     fn help(&self, request: &Request) -> Result<JsonValue, String> {
-        Err(String::from("TODO"))
+        Err(String::from("help command"))
     }
 
     fn swear(&self, request: &Request) -> Result<JsonValue, String> {
-        Err(String::from("TODO"))
+        Err(String::from("swear command"))
     }
 
     fn swearto(&self, request: &Request, args: Vec<String>) -> Result<JsonValue, String> {
-        Err(String::from("TODO"))
+        Err(String::from("swearto command"))
     }
 
     fn blackhumor(&self, request: &Request) -> Result<JsonValue, String> {
-        Err(String::from("TODO"))
+        Err(String::from("blackhumor command"))
     }
 }
 
 #[no_mangle]
-pub extern fn init_bot(ptr_config: *const TomlValue, secret: &str, ptr_request: *const Request) -> Result<JsonValue, String> {
+pub extern fn init_bot(ptr_config: *const Arc<RwLock<TomlValue>>, ptr_session: *const Arc<RwLock<HashMap<String, JsonValue>>>, secret: &str, ptr_request: *const Request) -> Result<JsonValue, String> {
     let config = unsafe {
         assert!(!ptr_config.is_null());
         &*ptr_config
+    };
+    let session = unsafe {
+        assert!(!ptr_session.is_null());
+        &*ptr_session
     };
     let request = unsafe {
         assert!(!ptr_request.is_null());
         &*ptr_request
     };
 
-    match Telegram::init_bot(BlaspemyBot::new, secret, config.clone()) {
+    match Telegram::init_bot(BlaspemyBot::new, secret, &config, &session) {
         Ok(bot) => bot.parse(request),
         Err(e) => Err(format!("Error during bot init: {}", e)),
     }
