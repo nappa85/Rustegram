@@ -42,18 +42,24 @@ impl Telegram {
             B: Bot
     {
         match config.read() {
-            Ok(cnf) => match cnf["SECRET"].as_str() {
-                Some(cnf_secret) => {
-                    if secret != cnf_secret {
-                        return Err(String::from("Secret mismatch"));
-                    }
+            Ok(cnf) => match cnf.get("SECRET") {
+                Some(secret_value) => match secret_value.as_str() {
+                    Some(cnf_secret) => {
+                        if secret != cnf_secret {
+                            return Err(String::from("Secret mismatch"));
+                        }
 
-                    match cnf["HTTP_TOKEN"].as_str() {
-                        Some(cnf_token) => Ok(constructor(Telegram::new(cnf_token), config, session)),
-                        None => Err(String::from("Error interpreting HTTP_TOKEN config value")),
-                    }
+                        match cnf.get("HTTP_TOKEN") {
+                            Some(token_value) => match token_value.as_str() {
+                                Some(cnf_token) => Ok(constructor(Telegram::new(cnf_token), config, session)),
+                                None => Err(String::from("Error interpreting HTTP_TOKEN config value")),
+                            },
+                            None => Err(String::from("HTTP_TOKEN config value not found")),
+                        }
+                    },
+                    None => Err(String::from("Error interpreting SECRET config value")),
                 },
-                None => Err(String::from("Error interpreting SECRET config value")),
+                None => Err(String::from("SECRET config value not found")),
             },
             Err(e) => Err(format!("Error read locking configuration: {:?}", e)),
         }

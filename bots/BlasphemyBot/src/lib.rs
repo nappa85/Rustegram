@@ -3,8 +3,7 @@ extern crate toml;
 extern crate serde_json;
 
 use std::collections::HashMap;
-use std::sync::Arc;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 use client_lib::{Bot, Telegram};
 use client_lib::entities::Request;
@@ -109,10 +108,39 @@ pub extern fn init_bot(ptr_config: *const Arc<RwLock<TomlValue>>, ptr_session: *
 
 #[cfg(test)]
 mod tests {
-    use super::{toml, init_bot};
+    use super::{toml, serde_json, init_bot};
+    use super::client_lib::entities::Request;
+    use std::collections::HashMap;
+    use std::sync::{Arc, RwLock};
 
     #[test]
     fn it_works() {
-        assert_eq!(init_bot(config, config["SECRET"].as_str().unwrap(), "{}"), Err(String::from("TODO")));
+        let config: toml::Value = toml::from_str(r#"SECRET = "prova"
+HTTP_TOKEN = "test""#).unwrap();
+        let session = Arc::new(RwLock::new(HashMap::new()));
+        let request: Request = serde_json::from_str(r#"{
+"update_id":10000,
+"message":{
+  "date":1441645532,
+  "chat":{
+     "last_name":"Test Lastname",
+     "id":1111111,
+     "type": "private",
+     "first_name":"Test Firstname",
+     "username":"Testusername"
+  },
+  "message_id":1365,
+  "from":{
+    "is_bot": true,
+     "last_name":"Test Lastname",
+     "id":1111111,
+     "first_name":"Test Firstname",
+     "username":"Testusername"
+  },
+  "text":"/start"
+}
+}"#).unwrap();
+
+        assert_eq!(init_bot(Box::into_raw(Box::new(Arc::new(RwLock::new(config)))), Box::into_raw(Box::new(session)), "prova", Box::into_raw(Box::new(request))), Err(String::from("TODO")));
     }
 }
