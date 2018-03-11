@@ -1555,7 +1555,11 @@ r#"{
   "data": "Data from button callback",
   "inline_message_id": "1234csdbsk4839"
 }
-}"#];
+}"#,
+//single position
+r#"{"update_id":241066346,"message":{"message_id":2,"from":{"id":25900594,"is_bot":false,"first_name":"Marco","last_name":"Napetti","username":"Nappa85","language_code":"it-IT"},"chat":{"id":25900594,"first_name":"Marco","last_name":"Napetti","username":"Nappa85","type":"private"},"date":1520763935,"location":{"latitude":45.561323,"longitude":12.234840}}}"#,
+//updated position
+r#"{"update_id":241066349,"edited_message":{"message_id":4,"from":{"id":25900594,"is_bot":false,"first_name":"Marco","last_name":"Napetti","username":"Nappa85","language_code":"it-IT"},"chat":{"id":25900594,"first_name":"Marco","last_name":"Napetti","username":"Nappa85","type":"private"},"date":1520764899,"edit_date":1520764972,"location":{"latitude":45.558900,"longitude":12.233439}}}"#];
         for s in messages.iter() {
             serde_json::from_str::<Request>(s).expect(s);
         }
