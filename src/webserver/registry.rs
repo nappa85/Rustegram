@@ -31,9 +31,9 @@ pub struct Plugin {
 }
 
 impl Plugin {
-    pub fn new(name: String) -> Result<Plugin, String> {
+    pub fn new(name: &str) -> Result<Plugin, String> {
         Ok(Plugin {
-            name: name.clone(),
+            name: name.to_owned(),
             config: Arc::new(RwLock::new(Plugin::load_config(name)?)),
             session: Arc::new(RwLock::new(HashMap::new())),
             plugins: Vec::new()
@@ -82,10 +82,10 @@ impl Plugin {
         }
     }
 
-    fn set_config(&self, lib: String) -> Result<(), String> {
+    fn set_config(&self, lib: &str) -> Result<(), String> {
         match self.config.write() {
             Ok(mut config) => {
-                *config = Plugin::load_config(lib.clone())?;
+                *config = Plugin::load_config(lib)?;
                 println!("Reloaded config for {}", lib);
                 Ok(())
             },
@@ -93,12 +93,12 @@ impl Plugin {
         }
     }
 
-    fn load_config(lib: String) -> Result<TomlValue, String> {
+    fn load_config(lib: &str) -> Result<TomlValue, String> {
         let mut config_file = PathBuf::new();
         config_file.push("config");
         config_file.push(lib);
         config_file.set_extension("toml");
-        match File::open(config_file.clone()) {
+        match File::open(&config_file) {
             Ok(mut toml) => {
                 let mut s = String::new();
                 match toml.read_to_string(&mut s) {
@@ -140,7 +140,7 @@ impl PluginRegistry {
         }
     }
 
-    pub fn load_plugin(&mut self, lib: String) -> Result<&mut Plugin, String> {
+    pub fn load_plugin(&mut self, lib: &str) -> Result<&mut Plugin, String> {
         loop {
             match self.watch_recv.try_recv() {
                 Ok(event) => match event {
@@ -149,7 +149,7 @@ impl PluginRegistry {
                             match stem.to_str() {
                                 Some(filename) => if self.libs.contains_key(filename) {
                                     match self.libs.get(filename) {
-                                        Some(plugin) => plugin.set_config(String::from(filename))?,
+                                        Some(plugin) => plugin.set_config(filename)?,
                                         None => { return Err(format!("Plugin disappeared: {}", filename)); },
                                     }
                                 },
@@ -164,8 +164,8 @@ impl PluginRegistry {
             }
         }
 
-        if self.libs.contains_key(&lib) {
-            match self.libs.get_mut(&lib) {
+        if self.libs.contains_key(lib) {
+            match self.libs.get_mut(lib) {
                 Some(mut plugin) => {
                     self.handler.update(Plugin::reload_callback, &mut plugin);
                     return Ok(plugin);
@@ -174,10 +174,10 @@ impl PluginRegistry {
             }
         }
 
-        match self.handler.add_library(&lib, PlatformName::Yes) {
+        match self.handler.add_library(lib, PlatformName::Yes) {
             Ok(plug) => {
-                self.libs.insert(lib.clone(), Plugin::new(lib.clone())?);
-                match self.libs.get_mut(&lib) {
+                self.libs.insert(lib.to_owned(), Plugin::new(lib)?);
+                match self.libs.get_mut(lib) {
                     Some(mut plugin) => {
                         plugin.add_plugin(&plug);
                         self.handler.update(Plugin::reload_callback, &mut plugin);

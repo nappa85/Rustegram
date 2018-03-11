@@ -342,15 +342,25 @@ pub trait Bot {
         self.dispatch(&method, args, request)
     }
 
-    fn parse_message(&self, request: &entities::Request) -> Result<(String, Vec<String>), String>;
+    fn parse_message(&self, request: &entities::Request) -> Result<((String, Vec<String>)), String> {
+        Err(String::from("Not managed"))
+    }
 
-    fn parse_edited_message(&self, request: &entities::Request) -> Result<(String, Vec<String>), String>;
+    fn parse_edited_message(&self, request: &entities::Request) -> Result<((String, Vec<String>)), String> {
+        Err(String::from("Not managed"))
+    }
 
-    fn parse_inline_query(&self, request: &entities::Request) -> Result<(String, Vec<String>), String>;
+    fn parse_inline_query(&self, request: &entities::Request) -> Result<((String, Vec<String>)), String> {
+        Err(String::from("Not managed"))
+    }
 
-    fn parse_chosen_inline_result(&self, request: &entities::Request) -> Result<(String, Vec<String>), String>;
+    fn parse_chosen_inline_result(&self, request: &entities::Request) -> Result<((String, Vec<String>)), String> {
+        Err(String::from("Not managed"))
+    }
 
-    fn parse_callback_query(&self, request: &entities::Request) -> Result<(String, Vec<String>), String>;
+    fn parse_callback_query(&self, request: &entities::Request) -> Result<((String, Vec<String>)), String> {
+        Err(String::from("Not managed"))
+    }
 
     fn dispatch(&self, method: &str, args: Vec<String>, request: &entities::Request) -> Result<JsonValue, String>;
 }

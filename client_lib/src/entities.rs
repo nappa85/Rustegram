@@ -36,6 +36,30 @@ impl Request {
         }
         Err(String::from("Unrecognized request type"))
     }
+
+    pub fn get_update_id(&self) -> &Option<u64> {
+        &self.update_id
+    }
+
+    pub fn get_message(&self) -> &Option<Box<Message>> {
+        &self.message
+    }
+
+    pub fn get_edited_message(&self) -> &Option<Box<Message>> {
+        &self.edited_message
+    }
+
+    pub fn get_inline_query(&self) -> &Option<InlineQuery> {
+        &self.inline_query
+    }
+
+    pub fn get_chosen_inline_result(&self) -> &Option<ChosenInlineResult> {
+        &self.chosen_inline_result
+    }
+
+    pub fn get_callback_query(&self) -> &Option<CallbackQuery> {
+        &self.callback_query
+    }
 }
 
 pub enum RequestType {
@@ -57,6 +81,12 @@ pub struct User {
     username: Option<String>,
     #[serde(default)]
     language_code: Option<String>,
+}
+
+impl User {
+    pub fn get_id(&self) -> i64 {
+        self.id
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -84,6 +114,12 @@ pub struct Chat {
     sticker_set_name: Option<String>,
     #[serde(default)]
     can_set_sticker_set: Option<bool>,
+}
+
+impl Chat {
+    pub fn get_id(&self) -> i64 {
+        self.id
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -162,6 +198,24 @@ pub struct Message {
     successful_payment: Option<SuccessfulPayment>,
     #[serde(default)]
     connected_website: Option<String>,
+}
+
+impl Message {
+    pub fn get_from(&self) -> &User {
+        &self.from
+    }
+
+    pub fn get_chat(&self) -> &Chat {
+        &self.chat
+    }
+
+    pub fn get_text(&self) -> &Option<String> {
+        &self.text
+    }
+
+    pub fn get_location(&self) -> &Option<Location> {
+        &self.location
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -261,6 +315,16 @@ pub struct Contact {
 pub struct Location {
     longitude: f64,
     latitude: f64,
+}
+
+impl Location {
+    pub fn get_longitude(&self) -> f64 {
+        self.longitude
+    }
+
+    pub fn get_latitude(&self) -> f64 {
+        self.latitude
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -1557,9 +1621,60 @@ r#"{
 }
 }"#,
 //single position
-r#"{"update_id":241066346,"message":{"message_id":2,"from":{"id":25900594,"is_bot":false,"first_name":"Marco","last_name":"Napetti","username":"Nappa85","language_code":"it-IT"},"chat":{"id":25900594,"first_name":"Marco","last_name":"Napetti","username":"Nappa85","type":"private"},"date":1520763935,"location":{"latitude":45.561323,"longitude":12.234840}}}"#,
+r#"{
+  "update_id":241066346,
+  "message":{
+    "message_id":2,
+    "from":{
+    "is_bot": true,
+     "last_name":"Test Lastname",
+     "type": "private",
+     "id":1111111,
+     "first_name":"Test Firstname",
+     "username":"Testusername"
+    },
+    "chat":{
+     "last_name":"Test Lastname",
+     "type": "private",
+     "id":1111111,
+     "first_name":"Test Firstname",
+     "username":"Testusername"
+    },
+    "date":1520763935,
+    "location":{
+      "latitude":45.561323,
+      "longitude":12.234840
+    }
+  }
+}"#,
 //updated position
-r#"{"update_id":241066349,"edited_message":{"message_id":4,"from":{"id":25900594,"is_bot":false,"first_name":"Marco","last_name":"Napetti","username":"Nappa85","language_code":"it-IT"},"chat":{"id":25900594,"first_name":"Marco","last_name":"Napetti","username":"Nappa85","type":"private"},"date":1520764899,"edit_date":1520764972,"location":{"latitude":45.558900,"longitude":12.233439}}}"#];
+r#"{
+  "update_id":241066349,
+  "edited_message":{
+    "message_id":4,
+    "from":{
+    "is_bot": true,
+     "last_name":"Test Lastname",
+     "type": "private",
+     "id":1111111,
+     "first_name":"Test Firstname",
+     "username":"Testusername"
+    },
+    "chat":{
+     "last_name":"Test Lastname",
+     "type": "private",
+     "id":1111111,
+     "first_name":"Test Firstname",
+     "username":"Testusername"
+    },
+    "date":1520764899,
+    "edit_date":1520764972,
+    "location":{
+      "latitude":45.558900,
+      "longitude":12.233439
+    }
+  }
+}"#];
         for s in messages.iter() {
             serde_json::from_str::<Request>(s).expect(s);
         }

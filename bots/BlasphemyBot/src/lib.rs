@@ -35,22 +35,6 @@ impl Bot for BlaspemyBot {
         Ok((String::from("swear"), Vec::new()))
     }
 
-    fn parse_edited_message(&self, request: &Request) -> Result<(String, Vec<String>), String> {
-        Err(String::from("Not managed"))
-    }
-
-    fn parse_inline_query(&self, request: &Request) -> Result<(String, Vec<String>), String> {
-        Err(String::from("Not managed"))
-    }
-
-    fn parse_chosen_inline_result(&self, request: &Request) -> Result<(String, Vec<String>), String> {
-        Err(String::from("Not managed"))
-    }
-
-    fn parse_callback_query(&self, request: &Request) -> Result<(String, Vec<String>), String> {
-        Err(String::from("Not managed"))
-    }
-
     fn dispatch(&self, method: &str, args: Vec<String>, request: &Request) -> Result<JsonValue, String> {
         match method {
             "about" => self.about(request),

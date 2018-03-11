@@ -36,7 +36,7 @@ impl WebServer {
                     let reg = REGISTRY.clone();
                     let temp = reg.lock();
                     match temp {
-                        Ok(mut plugin_registry) => match plugin_registry.load_plugin(bot.clone()) {
+                        Ok(mut plugin_registry) => match plugin_registry.load_plugin(&bot) {
                             Ok(mut plugin) => match plugin.run(secret, request) {
                                 Ok(out) => Response::new().with_status(StatusCode::Ok).with_body(out.to_string()),
                                 Err(e) => Response::new().with_status(StatusCode::InternalServerError).with_body(e),
