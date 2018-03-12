@@ -85,7 +85,13 @@ impl NoFlyBot {
                             for s in text.split(' ') {
                                 words.push(String::from(s));
                             }
-                            Ok(((&words.swap_remove(0))[1..].to_string(), words))
+
+                            //remove first char
+                            let method = words.swap_remove(0);
+                            let mut chars = method.chars();
+                            chars.next();
+
+                            Ok((String::from(chars.as_str()), words))
                         }
                         else {
                             Err(format!("String \"{}\" doesn't contains a command", text))
