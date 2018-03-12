@@ -43,21 +43,13 @@ impl Bot for NoFlyBot {
                     Some(path) => {
                         let mut new_args: Vec<String> = Vec::new();
 
-                        let (chat_id, user_id) = match request.get_type() {
-                            Ok(RequestType::Message) => match request.get_message() {
+                        let (chat_id, user_id) = match request.get_message() {
+                            &Some(ref msg) => (msg.get_chat().get_id().to_string(), msg.get_from().get_id().to_string()),
+                            &None => match request.get_edited_message() {
                                 &Some(ref msg) => (msg.get_chat().get_id().to_string(), msg.get_from().get_id().to_string()),
                                 &None => {
                                     return Err(String::from("Unsupported message type"));
                                 },
-                            },
-                            Ok(RequestType::EditedMesage) => match request.get_edited_message() {
-                                &Some(ref msg) => (msg.get_chat().get_id().to_string(), msg.get_from().get_id().to_string()),
-                                &None => {
-                                    return Err(String::from("Unsupported message type"));
-                                },
-                            },
-                            _ => {
-                                return Err(String::from("Unsupported message type"));
                             },
                         };
 
@@ -87,11 +79,17 @@ impl NoFlyBot {
             &Some(ref msg) => {
                 match msg.get_text() {
                     &Some(ref txt) => {
-                        let mut words: Vec<String> = Vec::new();
-                        for s in txt.split(' ') {
-                            words.push(String::from(s));
+                        let text = txt.trim();
+                        if text.starts_with('/') || text.starts_with('#') {
+                            let mut words: Vec<String> = Vec::new();
+                            for s in text.split(' ') {
+                                words.push(String::from(s));
+                            }
+                            Ok(((&words.swap_remove(0))[1..].to_string(), words))
                         }
-                        Ok((words.swap_remove(0), words))
+                        else {
+                            Err(format!("String \"{}\" doesn't contains a command", text))
+                        }
                     },
                     &None => match msg.get_location() {
                         &Some(ref loc) => Ok((String::from("set_location"), vec![loc.get_longitude().to_string(), loc.get_latitude().to_string()])),
@@ -136,12 +134,37 @@ mod tests {
     fn it_works() {
         let config: toml::Value = toml::from_str(r#"SECRET = "prova"
 HTTP_TOKEN = "test"
+
+[command]
+set_position = "echo"
+find = "echo"
 "#).unwrap();
-        let session = Arc::new(RwLock::new(HashMap::new()));
-        let request: Request = serde_json::from_str(r#"{
-  "update_id":241066346,
-  "message":{
-    "message_id":2,
+
+        let messages = [r#"{
+"update_id":10000,
+"message":{
+  "date":1441645532,
+  "chat":{
+     "last_name":"Test Lastname",
+     "id":1111111,
+     "type": "private",
+     "first_name":"Test Firstname",
+     "username":"Testusername"
+  },
+  "message_id":1365,
+  "from":{
+    "is_bot": true,
+     "last_name":"Test Lastname",
+     "id":1111111,
+     "first_name":"Test Firstname",
+     "username":"Testusername"
+  },
+  "text":"/find pippo"
+}
+}"#, r#"{
+  "update_id":241066349,
+  "edited_message":{
+    "message_id":4,
     "from":{
     "is_bot": true,
      "last_name":"Test Lastname",
@@ -157,14 +180,18 @@ HTTP_TOKEN = "test"
      "first_name":"Test Firstname",
      "username":"Testusername"
     },
-    "date":1520763935,
+    "date":1520764899,
+    "edit_date":1520764972,
     "location":{
-      "latitude":45.561323,
-      "longitude":12.234840
+      "latitude":45.558900,
+      "longitude":12.233439
     }
   }
-}"#).unwrap();
+}"#];
+        for s in messages.iter() {
+            let request: Request = serde_json::from_str(s).unwrap();
 
-        assert_eq!(init_bot(Box::into_raw(Box::new(Arc::new(RwLock::new(config)))), Box::into_raw(Box::new(session)), "prova", Box::into_raw(Box::new(request))), Err(String::from("TODO")));
+            assert_eq!(init_bot(Box::into_raw(Box::new(Arc::new(RwLock::new(config)))), Box::into_raw(Box::new(Arc::new(RwLock::new(HashMap::new())))), "prova", Box::into_raw(Box::new(request))), Err(String::from("TODO")));
+        }
     }
 }

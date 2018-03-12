@@ -75,7 +75,7 @@ impl Telegram {
     pub fn send_message(&self, chat_id: &str, message: &str, reply_id: Option<&str>, preview: Option<bool>, parse_mode: Option<entities::ParseMode>, reply_markup: Option<entities::ReplyMarkup>) -> Result<JsonValue, String> {
         let mut params = HashMap::new();
         params.insert("chat_id", Param::Value(chat_id));
-        params.insert("message", Param::Value(message));
+        params.insert("text", Param::Value(message));
 
         match reply_id {
             Some(value) => {
@@ -305,22 +305,13 @@ impl Telegram {
                     },
                     entities::InputFile::FileId(s) | entities::InputFile::Url(s) => form.text::<String, String>(name.to_owned(), s.to_owned()),
                 },
-                Param::Flag(ref v) => match serde_json::to_string(v) {
-                    Ok(value) => form.text::<String, String>(name.to_owned(), value.to_owned()),
-                    Err(e) => { return Err(format!("Unable to add flag field {} to request: {:?}", name, e)); },
-                },
-                Param::ParseMode(ref v) => match serde_json::to_string(v) {
-                    Ok(value) => form.text::<String, String>(name.to_owned(), value.to_owned()),
-                    Err(e) => { return Err(format!("Unable to add parse_mode field {} to request: {:?}", name, e)); },
-                },
+                Param::Flag(v) => form.text::<String, String>(name.to_owned(), String::from(if v { "true" } else { "false" })),
+                Param::ParseMode(ref v) => form.text::<String, String>(name.to_owned(), v.to_string()),
                 Param::ReplyMarkup(ref v) => match serde_json::to_string(v) {
                     Ok(value) => form.text::<String, String>(name.to_owned(), value.to_owned()),
                     Err(e) => { return Err(format!("Unable to add reply_markup field {} to request: {:?}", name, e)); },
                 },
-                Param::ChatAction(ref v) => match serde_json::to_string(v) {
-                    Ok(value) => form.text::<String, String>(name.to_owned(), value.to_owned()),
-                    Err(e) => { return Err(format!("Unable to add chat_action field {} to request: {:?}", name, e)); },
-                },
+                Param::ChatAction(ref v) => form.text::<String, String>(name.to_owned(), v.to_string()),
             };
         }
 
