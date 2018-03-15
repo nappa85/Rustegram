@@ -29,7 +29,10 @@ Now let's build the main module: the webserver
 ```
 $ cd Rustegram
 $ cargo build
+$ nano config/rustegram.toml
 ```
+
+nano is just an example, you can use your favourite editor to fill che config parameters.
 
 For every bot you want to ship, you'll need to build it too.<br/>
 Replace &lt;bot&gt; with bot's name
@@ -44,7 +47,6 @@ $ cd ..
 $ nano config/<bot>.toml
 ```
 These instructions links the file .so, if you're on OsX link the .dylib file, if you're on Windows link the .dll file.
-nano is an example, you can use your favourite editor to fill che config parameters.
 
 To start the webserver simply execute
 ```
@@ -81,5 +83,6 @@ $ cd ..
 $ nano config/<bot>.toml
 ```
 
+Same note as installation step occours here: change the file extension based on your plaform.<br/>
 Note that this time we used cp instead of ln, because normally on a production system you aren't going to keep the sources.<br/>
-Indeed, at this point the various src and target folders are useless, along with bots subfolders.
+Indeed, at this point the various src/ and target/ folders are useless, along with bots subfolders.
