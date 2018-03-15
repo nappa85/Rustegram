@@ -1,9 +1,9 @@
 # Rustegram
 Telegram bot library written in Rust
 
-The project is composed of a webserver (hyper), supporting both HTTP and HTTPS, a base lybrary for implementig bots and the single bots implementations.<br/>
+The project is composed of a webserver (hyper), supporting both HTTP and HTTPS, a base library for implementing bots and the single bots implementations.<br/>
 Single bots are libraries too, compiled as dylibs, included by webserver only when needed.<br/>
-The webserver infere the name of the dylib from URL, also asking for a secret to enforce security.<br/>
+The webserver infer the name of the dylib from URL, also asking for a secret to enforce security.<br/>
 Every dylib has a dedicated toml config file.
 
 ## Getting Started
@@ -13,7 +13,7 @@ These instructions will get you a copy of the project up and running on your loc
 ### Prerequisites
 
 The main prerequisite is having Rust, and his package manager Cargo, installed.<br/>
-The easyest way to obtain it through your favourite package manager, or following the [official guide](https://www.rust-lang.org/en-US/install.html).<br/>
+The easiest way to obtain it through your favourite package manager, or following the [official guide](https://www.rust-lang.org/en-US/install.html).<br/>
 And, obviously, you'll need [git](https://git-scm.com/) to retrieve the source code.
 
 ### Installing
