@@ -30,7 +30,7 @@ impl WebServer {
         //convert chunks to String
         match String::from_utf8(chunks) {
             Ok(body) => match serde_json::from_str::<TelegramRequest>(&body) {
-                Ok(request) => {
+                Ok(ref request) => {
                     //load bot library
                     //this improves modularity
                     let reg = REGISTRY.clone();

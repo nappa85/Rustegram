@@ -70,7 +70,7 @@ impl BlaspemyBot {
 }
 
 #[no_mangle]
-pub extern fn init_bot(ptr_config: *const Arc<RwLock<TomlValue>>, ptr_session: *const Arc<RwLock<HashMap<String, JsonValue>>>, secret: &str, ptr_request: *const Request) -> Result<JsonValue, String> {
+pub extern fn init_bot(ptr_config: *const Arc<RwLock<TomlValue>>, ptr_session: *const Arc<RwLock<HashMap<String, JsonValue>>>, secret: &str, ptr_request: *const &Request) -> *const Result<JsonValue, String> {
     let config = unsafe {
         assert!(!ptr_config.is_null());
         &*ptr_config
@@ -84,10 +84,10 @@ pub extern fn init_bot(ptr_config: *const Arc<RwLock<TomlValue>>, ptr_session: *
         &*ptr_request
     };
 
-    match Telegram::init_bot(BlaspemyBot::new, secret, &config, &session) {
+    Box::into_raw(Box::new(match Telegram::init_bot(BlaspemyBot::new, secret, &config, &session) {
         Ok(bot) => bot.parse(request),
         Err(e) => Err(format!("Error during bot init: {}", e)),
-    }
+    }))
 }
 
 #[cfg(test)]

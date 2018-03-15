@@ -4,14 +4,14 @@ extern crate serde_json;
 extern crate toml;
 extern crate client_lib;
 
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::sync::mpsc::{channel, Receiver, TryRecvError};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::fs::File;
 use std::io::Read;
-use std::sync::RwLock;
+use std::mem::transmute;
 
 use self::dynamic_reload::{DynamicReload, Search, Lib, UpdateState, Symbol, PlatformName};
 
@@ -27,7 +27,7 @@ pub struct Plugin {
     name: String,
     config: Arc<RwLock<TomlValue>>,
     session: Arc<RwLock<HashMap<String, JsonValue>>>,
-    plugins: Vec<Arc<Lib>>,
+    plugins: Vec<(Arc<Lib>, Arc<Symbol<'static, extern "C" fn(config: *const Arc<RwLock<TomlValue>>, session: *const Arc<RwLock<HashMap<String, JsonValue>>>, secret: &str, request: *const &Request) -> *const Result<JsonValue, String>>>)>,
 }
 
 impl Plugin {
@@ -41,12 +41,18 @@ impl Plugin {
     }
 
     fn add_plugin(&mut self, plugin: &Arc<Lib>) {
-        self.plugins.push(plugin.clone());
+        match unsafe { plugin.lib.get(b"init_bot\0") } {
+            Ok(temp) => {
+                let f: Symbol<extern "C" fn(config: *const Arc<RwLock<TomlValue>>, session: *const Arc<RwLock<HashMap<String, JsonValue>>>, secret: &str, request: *const &Request) -> *const Result<JsonValue, String>> = temp;
+                self.plugins.push((plugin.clone(), Arc::new(unsafe { transmute(f) })));
+            },
+            Err(e) => println!("Failed to load symbol for {}: {:?}", self.name, e),
+        }
     }
 
     fn unload_plugins(&mut self, lib: &Arc<Lib>) {
         for i in (0..self.plugins.len()).rev() {
-            if &self.plugins[i] == lib {
+            if &self.plugins[i].0 == lib {
                 self.plugins.swap_remove(i);
             }
         }
@@ -65,20 +71,24 @@ impl Plugin {
         }
     }
 
-    pub fn run(&self, secret: String, request: Request) -> Result<JsonValue, String> {
-        if self.plugins.len() > 0 {
-            // In a real program you want to cache the symbol and not do it every time if your
-            // application is performance critical
-            match unsafe { self.plugins[0].lib.get(b"init_bot\0") } {
-                Ok(temp) => {
-                    let f: Symbol<extern "C" fn(config: *const Arc<RwLock<TomlValue>>, session: *const Arc<RwLock<HashMap<String, JsonValue>>>, secret: &str, request: *const Request) -> Result<JsonValue, String>> = temp;
-                    f(Box::into_raw(Box::new(self.config.clone())), Box::into_raw(Box::new(self.session.clone())), &secret, Box::into_raw(Box::new(request)))
-                },
-                Err(e) => Err(format!("Error getting Symbol for {}: {:?}", self.name, e)),
-            }
+    pub fn run(&self, secret: String, request: &Request) -> Result<&JsonValue, String> {
+        if self.plugins.len() == 0 {
+            return Err(format!("Lib {} not loaded", self.name));
         }
-        else {
-            Err(format!("Lib {} not loaded", self.name))
+
+        let f = &self.plugins[0].1;
+        let res = f(Box::into_raw(Box::new(self.config.clone())), Box::into_raw(Box::new(self.session.clone())), &secret, Box::into_raw(Box::new(request)));
+
+        unsafe {
+            if res.is_null() {
+                Err(format!("Null pointer exception"))
+            }
+            else {
+                match *res {
+                    Ok(ref v) => Ok(v),
+                    Err(ref e) => Err(e.to_string()),
+                }
+            }
         }
     }
 
