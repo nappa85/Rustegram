@@ -1,3 +1,15 @@
+#![deny(warnings)]
+#![deny(missing_docs)]
+
+//! # rustegram
+//!
+//! Telegram bot server with dynamically loaded bots
+//!
+//! Provides a C ABI to call on dynamically linked libs, which are
+//! dynamicaly reloaded on file change,
+//! allowing centralized configuration with automatical file reload
+//! and in-memory per-bot private session.
+
 #[macro_use]
 extern crate lazy_static;
 extern crate hyper;
@@ -21,9 +33,11 @@ use toml::Value;
 
 use webserver::WebServer as WebServer;
 
+/// Launch WebServer according to config
 fn main() {
     let args:Vec<String> = env::args().collect();
 
+    //config file can be the first argument
     let config_file = if args.len() > 1 {
         args.get(1).expect("Cannot retrieve config path").to_owned()
     }
@@ -34,9 +48,11 @@ fn main() {
     let mut toml = File::open(&config_file).expect(&format!("File {} not found", config_file));
     let mut s = String::new();
     toml.read_to_string(&mut s).expect("Unable to read Toml file");
+    //read config file in toml format
     let config:Value = toml::from_str(&s).expect("Syntax error on Tolm file");
-    let https = config["https"]["enabled"].as_bool().expect("Error interpreting https.enabled flag");
 
+    let https = config["https"]["enabled"].as_bool().expect("Error interpreting https.enabled flag");
+    //retrieve address and port, defaulting if not configured
     let addr = format!("{}:{}", config["address"].as_str().expect("Error interpreting address value"), if config.get("port").is_none() {
             if https { "443" } else { "80" }
         } else {

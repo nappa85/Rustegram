@@ -1,5 +1,6 @@
-// #[macro_use]
-// extern crate lazy_static;
+#![deny(warnings)]
+#![deny(missing_docs)]
+
 #[macro_use]
 extern crate serde_derive;
 extern crate serde;
@@ -41,28 +42,21 @@ impl Telegram {
         where F: Fn(Telegram, &Arc<RwLock<TomlValue>>, &Arc<RwLock<HashMap<String, JsonValue>>>) -> B,
             B: Bot
     {
-        match config.read() {
-            Ok(cnf) => match cnf.get("SECRET") {
-                Some(secret_value) => match secret_value.as_str() {
-                    Some(cnf_secret) => {
+        (config.read().map_err(|e| format!("Error read locking configuration: {:?}", e)))
+            .and_then(|cnf| {
+                cnf.get("SECRET").ok_or(String::from("SECRET config value not found"))
+                    .and_then(|secret_value| secret_value.as_str().ok_or(String::from("Error interpreting SECRET config value")))
+                    .and_then(|cnf_secret| {
                         if secret != cnf_secret {
-                            return Err(String::from("Secret mismatch"));
+                            Err(String::from("Secret mismatch"))
                         }
-
-                        match cnf.get("HTTP_TOKEN") {
-                            Some(token_value) => match token_value.as_str() {
-                                Some(cnf_token) => Ok(constructor(Telegram::new(cnf_token), config, session)),
-                                None => Err(String::from("Error interpreting HTTP_TOKEN config value")),
-                            },
-                            None => Err(String::from("HTTP_TOKEN config value not found")),
+                        else {
+                            cnf.get("HTTP_TOKEN").ok_or(String::from("HTTP_TOKEN config value not found"))
                         }
-                    },
-                    None => Err(String::from("Error interpreting SECRET config value")),
-                },
-                None => Err(String::from("SECRET config value not found")),
-            },
-            Err(e) => Err(format!("Error read locking configuration: {:?}", e)),
-        }
+                    })
+                    .and_then(|token_value| token_value.as_str().ok_or(String::from("Error interpreting HTTP_TOKEN config value")))
+                    .and_then(|cnf_token| Ok(constructor(Telegram::new(cnf_token), config, session)))
+            })
     }
 
     fn new(token: &str) -> Telegram {
@@ -122,21 +116,11 @@ impl Telegram {
 
         let res = self.call_telegram("getFile", params)?;
 
-        match res["result"]["file_path"].as_str() {
-            Some(file_path) => {
-                let url = format!("https://api.telegram.org/bot{}/{}", self.http_token, file_path);
-                match self.client.get(&url).send() {
-                    Ok(mut file) => {
-                        match file.text() {
-                            Ok(file) => Ok(file),
-                            Err(e) => Err(format!("{}", e)),
-                        }
-                    },
-                    Err(e) => Err(format!("{}", e)),
-                }
-            },
-            None => Err(String::from("Unable to retrieve file_path")),
-        }
+        res["result"]["file_path"].as_str().ok_or(String::from("Unable to retrieve file_path"))
+            .and_then(|file_path| self.client.get(&format!("https://api.telegram.org/bot{}/{}", self.http_token, file_path)).send()
+                .and_then(|mut file| file.text())
+                .map_err(|e| format!("{:?}", e))
+            )
     }
 
     pub fn send_photo(&self, chat_id: &str, photo: entities::InputFile, caption: Option<&str>, reply_id: Option<&str>, preview: Option<bool>, reply_markup: Option<entities::ReplyMarkup>) -> Result<JsonValue, String> {
@@ -279,17 +263,11 @@ impl Telegram {
 
     fn call_telegram(&self, method: &str, params: HashMap<&str, Param>) -> Result<JsonValue, String> {
         let url = format!("https://api.telegram.org/bot{}/{}", self.http_token, method);
-        match self.client.post(&url)
+        self.client.post(&url)
             .multipart(Telegram::write_body(params)?)
-            .send() {
-            Ok(mut response) => {
-                match response.json() {
-                    Ok(res) => Ok(res),
-                    Err(e) => Err(format!("{}", e)),
-                }
-            },
-            Err(e) => Err(format!("{}", e)),
-        }
+            .send()
+            .and_then(|mut response| response.json())
+            .map_err(|e| format!("{:?}", e))
     }
 
     fn write_body(params: HashMap<&str, Param>) -> Result<Form, String> {
@@ -333,23 +311,23 @@ pub trait Bot {
         self.dispatch(&method, args, request)
     }
 
-    fn parse_message(&self, request: &entities::Request) -> Result<((String, Vec<String>)), String> {
+    fn parse_message(&self, _request: &entities::Request) -> Result<((String, Vec<String>)), String> {
         Err(String::from("Not managed"))
     }
 
-    fn parse_edited_message(&self, request: &entities::Request) -> Result<((String, Vec<String>)), String> {
+    fn parse_edited_message(&self, _request: &entities::Request) -> Result<((String, Vec<String>)), String> {
         Err(String::from("Not managed"))
     }
 
-    fn parse_inline_query(&self, request: &entities::Request) -> Result<((String, Vec<String>)), String> {
+    fn parse_inline_query(&self, _request: &entities::Request) -> Result<((String, Vec<String>)), String> {
         Err(String::from("Not managed"))
     }
 
-    fn parse_chosen_inline_result(&self, request: &entities::Request) -> Result<((String, Vec<String>)), String> {
+    fn parse_chosen_inline_result(&self, _request: &entities::Request) -> Result<((String, Vec<String>)), String> {
         Err(String::from("Not managed"))
     }
 
-    fn parse_callback_query(&self, request: &entities::Request) -> Result<((String, Vec<String>)), String> {
+    fn parse_callback_query(&self, _request: &entities::Request) -> Result<((String, Vec<String>)), String> {
         Err(String::from("Not managed"))
     }
 

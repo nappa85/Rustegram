@@ -23,6 +23,7 @@ use self::toml::Value as TomlValue;
 
 use self::client_lib::entities::Request;
 
+/// 
 pub struct Plugin {
     name: String,
     config: Arc<RwLock<TomlValue>>,
@@ -108,19 +109,12 @@ impl Plugin {
         config_file.push("config");
         config_file.push(lib);
         config_file.set_extension("toml");
-        match File::open(&config_file) {
-            Ok(mut toml) => {
+        (File::open(&config_file).map_err(|e| format!("File {:?} not found: {:?}", config_file, e)))
+            .and_then(|mut toml| {
                 let mut s = String::new();
-                match toml.read_to_string(&mut s) {
-                    Ok(_) => match toml::from_str(&s) {
-                        Ok(config) => Ok(config),
-                        Err(e) => Err(format!("Syntax error on Toml file {:?}: {:?}", config_file, e)),
-                    },
-                    Err(e) => Err(format!("Unable to read Toml file {:?}: {:?}", config_file, e)),
-                }
-            },
-            Err(e) => Err(format!("File {:?} not found: {:?}", config_file, e)),
-        }
+                (toml.read_to_string(&mut s).map_err(|e| format!("Unable to read Toml file {:?}: {:?}", config_file, e)))
+                    .and_then(|_| toml::from_str(&s).map_err(|e| format!("Syntax error on Toml file {:?}: {:?}", config_file, e)))
+            })
     }
 }
 
