@@ -1,6 +1,7 @@
-
 use std::fmt;
 
+/// #RequestType
+/// This object represents a Telegram Request.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Request {
     #[serde(default)]
@@ -18,6 +19,7 @@ pub struct Request {
 }
 
 impl Request {
+    /// returns Request type
     pub fn get_type(&self) -> Result<RequestType, String> {
         if !self.message.is_none() {
             return Ok(RequestType::Message);
@@ -37,36 +39,49 @@ impl Request {
         Err(String::from("Unrecognized request type"))
     }
 
+    /// returns update_id value
     pub fn get_update_id(&self) -> &Option<u64> {
         &self.update_id
     }
 
+    /// returns message
     pub fn get_message(&self) -> &Option<Box<Message>> {
         &self.message
     }
 
+    /// returns edited_message
     pub fn get_edited_message(&self) -> &Option<Box<Message>> {
         &self.edited_message
     }
 
+    /// returns inline_query
     pub fn get_inline_query(&self) -> &Option<InlineQuery> {
         &self.inline_query
     }
 
+    /// returns chosen_inline_result
     pub fn get_chosen_inline_result(&self) -> &Option<ChosenInlineResult> {
         &self.chosen_inline_result
     }
 
+    /// returns callback_query
     pub fn get_callback_query(&self) -> &Option<CallbackQuery> {
         &self.callback_query
     }
 }
 
+/// #RequestType
+/// This object represents the type of a Telegram Request.
 pub enum RequestType {
+    /// see Message
     Message,
+    /// see Message
     EditedMesage,
+    /// see InlineQuery
     InlineQuery,
+    /// see ChosenInlineResult
     ChosenInlineResult,
+    /// see CallbackQuery
     CallbackQuery,
 }
 
@@ -86,6 +101,7 @@ pub struct User {
 }
 
 impl User {
+    /// returns id
     pub fn get_id(&self) -> i64 {
         self.id
     }
@@ -121,6 +137,7 @@ pub struct Chat {
 }
 
 impl Chat {
+    /// returns id
     pub fn get_id(&self) -> i64 {
         self.id
     }
@@ -207,18 +224,22 @@ pub struct Message {
 }
 
 impl Message {
+    /// returns from
     pub fn get_from(&self) -> &User {
         &self.from
     }
 
+    /// returns chat
     pub fn get_chat(&self) -> &Chat {
         &self.chat
     }
 
+    /// returns text
     pub fn get_text(&self) -> &Option<String> {
         &self.text
     }
 
+    /// returns location
     pub fn get_location(&self) -> &Option<Location> {
         &self.location
     }
@@ -342,10 +363,12 @@ pub struct Location {
 }
 
 impl Location {
+    /// returns longitude
     pub fn get_longitude(&self) -> f64 {
         self.longitude
     }
 
+    /// returns latitude
     pub fn get_latitude(&self) -> f64 {
         self.latitude
     }
@@ -545,8 +568,12 @@ pub struct ResponseParameters {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum InputMedia {
-    photo(InputMediaPhoto),
-    video(InputMediaVideo),
+    /// see InputMediaPhoto
+    #[serde(rename = "photo")]
+    Photo(InputMediaPhoto),
+    /// see InputMediaVideo
+    #[serde(rename = "video")]
+    Video(InputMediaVideo),
 }
 
 /// #InputMediaPhoto
@@ -587,8 +614,11 @@ pub struct InputMediaVideo  {
 /// This object represents the contents of a file to be uploaded.
 /// Must be posted using multipart/form-data in the usual way that files are uploaded via the browser.
 pub enum InputFile {
+    /// use FileId when using a file already present on Telegram server
     FileId(String),
+    /// use Url when uploading a remote file
     Url(String),
+    /// use File when uploading a local file
     File(String),
 }
 
@@ -669,25 +699,45 @@ pub struct InlineQuery {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum InlineQueryResult {
+    /// see InlineQueryResultCachedAudio
     CachedAudio(InlineQueryResultCachedAudio),
+    /// see InlineQueryResultCachedDocument
     CachedDocument(InlineQueryResultCachedDocument),
+    /// see InlineQueryResultCachedGif
     CachedGif(InlineQueryResultCachedGif),
+    /// see InlineQueryResultCachedMpeg4Gif
     CachedMpeg4Gif(InlineQueryResultCachedMpeg4Gif),
+    /// see InlineQueryResultCachedPhoto
     CachedPhoto(InlineQueryResultCachedPhoto),
+    /// see InlineQueryResultCachedSticker
     CachedSticker(InlineQueryResultCachedSticker),
+    /// see InlineQueryResultCachedVideo
     CachedVideo(InlineQueryResultCachedVideo),
+    /// see InlineQueryResultCachedVoice
     CachedVoice(InlineQueryResultCachedVoice),
+    /// see InlineQueryResultArticle
     Article(InlineQueryResultArticle),
+    /// see InlineQueryResultAudio
     Audio(InlineQueryResultAudio),
+    /// see InlineQueryResultContact
     Contact(InlineQueryResultContact),
+    /// see InlineQueryResultGame
     Game(InlineQueryResultGame),
+    /// see InlineQueryResultDocument
     Document(InlineQueryResultDocument),
+    /// see InlineQueryResultGif
     Gif(InlineQueryResultGif),
+    /// see InlineQueryResultLocation
     Location(InlineQueryResultLocation),
+    /// see InlineQueryResultMpeg4Gif
     Mpeg4Gif(InlineQueryResultMpeg4Gif),
+    /// see InlineQueryResultPhoto
     Photo(InlineQueryResultPhoto),
+    /// see InlineQueryResultVenue
     Venue(InlineQueryResultVenue),
+    /// see InlineQueryResultVideo
     Video(InlineQueryResultVideo),
+    /// see InlineQueryResultVoice
     Voice(InlineQueryResultVoice),
 }
 
@@ -1196,9 +1246,13 @@ pub struct InlineQueryResultCachedAudio {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum InputMessageContent {
+    /// see InputTextMessageContent
     Text(InputTextMessageContent),
+    /// see InputLocationMessageContent
     Location(InputLocationMessageContent),
+    /// see InputVenueMessageContent
     Venue(InputVenueMessageContent),
+    /// see InputContactMessageContent
     Contact(InputContactMessageContent),
 }
 
@@ -1402,7 +1456,9 @@ pub struct GameHighScore {
 /// This object represents Telegram messages formatting options.
 #[derive(Debug)]
 pub enum ParseMode {
+    /// Markdown style
     Markdown,
+    /// HTML style
     HTML,
 }
 
@@ -1457,19 +1513,28 @@ impl<'de> ::serde::Deserialize<'de> for ParseMode {
 /// #ChatAction
 /// This object represents types of action to broadcast.
 /// Choose one, depending on what the user is about to receive:
-/// typing for text messages, upload_photo for photos, record_video or upload_video for videos,
-/// record_audio or upload_audio for audio files, upload_document for general files,
-/// find_location for location data, record_video_note or upload_video_note for video notes.
 #[derive(Debug)]
 pub enum ChatAction {
+    /// typing for text messages
     Typing,
+    /// upload_photo for photos
     UploadPhoto,
+    /// record_video for videos
     RecordVideo,
+    /// upload_video for videos
     UploadVideo,
+    /// record_audio for audio files
     RecordAudio,
+    /// upload_audio for audio files
     UploadAudio,
+    /// upload_document for general files
     UploadDocument,
+    /// find_location for location data
     FindLocation,
+    /// record_video_note for video notes
+    RecordVideoNote,
+    /// upload_video_note for video notes
+    UploadVideoNote,
 }
 
 impl ToString for ChatAction {
@@ -1483,6 +1548,8 @@ impl ToString for ChatAction {
             ChatAction::UploadAudio => "upload_audio",
             ChatAction::UploadDocument => "upload_document",
             ChatAction::FindLocation => "find_location",
+            ChatAction::RecordVideoNote => "record_video_note",
+            ChatAction::UploadVideoNote => "upload_video_note",
         }).to_owned()
     }
 }
@@ -1522,6 +1589,8 @@ impl<'de> ::serde::Deserialize<'de> for ChatAction {
                     "upload_audio" => Ok(ChatAction::UploadAudio),
                     "upload_document" => Ok(ChatAction::UploadDocument),
                     "find_location" => Ok(ChatAction::FindLocation),
+                    "record_video_note" => Ok(ChatAction::RecordVideoNote),
+                    "upload_video_note" => Ok(ChatAction::UploadVideoNote),
                     _ => Err(E::custom(format!("unknown ChatAction value: {}", value))),
                 }
             }
@@ -1537,9 +1606,13 @@ impl<'de> ::serde::Deserialize<'de> for ChatAction {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ReplyMarkup {
+    /// see ForceReply
     ForceReply(ForceReply),
+    /// see ReplyKeyboardMarkup
     ReplyKeyboard(ReplyKeyboardMarkup),
+    /// see ReplyKeyboardRemove
     ReplyKeyboardRemove(ReplyKeyboardRemove),
+    /// see InlineKeyboardMarkup
     InlineKeyboard(InlineKeyboardMarkup),
 }
 
