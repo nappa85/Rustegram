@@ -1,3 +1,12 @@
+#![deny(warnings)]
+#![deny(missing_docs)]
+
+//! # blasphemy_bot
+//!
+//! Telegram bot BlasphemyBot
+//!
+//! BlasphemyBot implementation
+
 extern crate client_lib;
 extern crate toml;
 extern crate serde_json;
@@ -12,22 +21,22 @@ use serde_json::value::Value as JsonValue;
 
 use toml::Value as TomlValue;
 
-struct BlaspemyBot {
-    api: Telegram,
-    config: Arc<RwLock<TomlValue>>,
-    session: Arc<RwLock<HashMap<String, JsonValue>>>,
+struct BlasphemyBot {
+    _api: Telegram,
+    _config: Arc<RwLock<TomlValue>>,
+    _session: Arc<RwLock<HashMap<String, JsonValue>>>,
 }
 
-impl Bot for BlaspemyBot {
-    fn new(api: Telegram, config: &Arc<RwLock<TomlValue>>, session: &Arc<RwLock<HashMap<String, JsonValue>>>) -> BlaspemyBot {
-        BlaspemyBot {
-            api: api,
-            config: config.clone(),
-            session: session.clone(),
+impl Bot for BlasphemyBot {
+    fn new(api: Telegram, config: &Arc<RwLock<TomlValue>>, session: &Arc<RwLock<HashMap<String, JsonValue>>>) -> BlasphemyBot {
+        BlasphemyBot {
+            _api: api,
+            _config: config.clone(),
+            _session: session.clone(),
         }
     }
 
-    fn parse_message(&self, request: &Request) -> Result<(String, Vec<String>), String> {
+    fn parse_message(&self, _request: &Request) -> Result<(String, Vec<String>), String> {
 //         if request.message.text.is_none() {
 //             return Err(String::from("Command not found"));
 //         }
@@ -47,28 +56,29 @@ impl Bot for BlaspemyBot {
     }
 }
 
-impl BlaspemyBot {
-    fn about(&self, request: &Request) -> Result<JsonValue, String> {
+impl BlasphemyBot {
+    fn about(&self, _request: &Request) -> Result<JsonValue, String> {
         Err(String::from("about command"))
     }
 
-    fn help(&self, request: &Request) -> Result<JsonValue, String> {
+    fn help(&self, _request: &Request) -> Result<JsonValue, String> {
         Err(String::from("help command"))
     }
 
-    fn swear(&self, request: &Request) -> Result<JsonValue, String> {
+    fn swear(&self, _request: &Request) -> Result<JsonValue, String> {
         Err(String::from("swear command"))
     }
 
-    fn swearto(&self, request: &Request, args: Vec<String>) -> Result<JsonValue, String> {
+    fn swearto(&self, _request: &Request, _args: Vec<String>) -> Result<JsonValue, String> {
         Err(String::from("swearto command"))
     }
 
-    fn blackhumor(&self, request: &Request) -> Result<JsonValue, String> {
+    fn blackhumor(&self, _request: &Request) -> Result<JsonValue, String> {
         Err(String::from("blackhumor command"))
     }
 }
 
+/// public C ABI to call the bot
 #[no_mangle]
 pub extern fn init_bot(ptr_config: *const Arc<RwLock<TomlValue>>, ptr_session: *const Arc<RwLock<HashMap<String, JsonValue>>>, secret: &str, ptr_request: *const &Request) -> *const Result<JsonValue, String> {
     let config = unsafe {
@@ -84,7 +94,7 @@ pub extern fn init_bot(ptr_config: *const Arc<RwLock<TomlValue>>, ptr_session: *
         &*ptr_request
     };
 
-    Box::into_raw(Box::new(match Telegram::init_bot(BlaspemyBot::new, secret, &config, &session) {
+    Box::into_raw(Box::new(match Telegram::init_bot(BlasphemyBot::new, secret, &config, &session) {
         Ok(bot) => bot.parse(request),
         Err(e) => Err(format!("Error during bot init: {}", e)),
     }))
