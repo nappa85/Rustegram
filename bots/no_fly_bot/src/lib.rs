@@ -1,3 +1,12 @@
+#![deny(warnings)]
+#![deny(missing_docs)]
+
+//! # no_fly_bot
+//!
+//! Telegram bot NoFlyBot
+//!
+//! NoFlyBot implementation
+
 extern crate client_lib;
 extern crate toml;
 extern crate serde_json;
@@ -108,6 +117,7 @@ impl NoFlyBot {
     }
 }
 
+/// public C ABI to call the bot
 #[no_mangle]
 pub extern fn init_bot(ptr_config: *const Arc<RwLock<TomlValue>>, ptr_session: *const Arc<RwLock<HashMap<String, JsonValue>>>, secret: &str, ptr_request: *const &Request) -> *const Result<JsonValue, String> {
     let config = unsafe {
