@@ -10,6 +10,7 @@
 extern crate client_lib;
 extern crate toml;
 extern crate serde_json;
+extern crate rand;
 
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -21,27 +22,54 @@ use serde_json::value::Value as JsonValue;
 
 use toml::Value as TomlValue;
 
+use rand::{thread_rng, Rng};
+
 struct BlasphemyBot {
-    _api: Telegram,
-    _config: Arc<RwLock<TomlValue>>,
+    api: Telegram,
+    config: Arc<RwLock<TomlValue>>,
     _session: Arc<RwLock<HashMap<String, JsonValue>>>,
 }
 
 impl Bot for BlasphemyBot {
     fn new(api: Telegram, config: &Arc<RwLock<TomlValue>>, session: &Arc<RwLock<HashMap<String, JsonValue>>>) -> BlasphemyBot {
         BlasphemyBot {
-            _api: api,
-            _config: config.clone(),
+            api: api,
+            config: config.clone(),
             _session: session.clone(),
         }
     }
 
-    fn parse_message(&self, _request: &Request) -> Result<(String, Vec<String>), String> {
-//         if request.message.text.is_none() {
-//             return Err(String::from("Command not found"));
-//         }
+    fn parse_message(&self, request: &Request) -> Result<(String, Vec<String>), String> {
+        match request.get_message() {
+            &Some(ref msg) => {
+                match msg.get_text() {
+                    &Some(ref txt) => {
+                        let text = txt.trim();
+                        if text.starts_with('/') {
+                            let mut words: Vec<String> = Vec::new();
+                            for s in text.split(' ') {
+                                words.push(String::from(s));
+                            }
 
-        Ok((String::from("swear"), Vec::new()))
+                            //remove first char
+                            let method = words.swap_remove(0);
+                            let mut chars = method.chars();
+                            chars.next();
+
+                            Ok((String::from(chars.as_str()), words))
+                        }
+                        else {
+                            Err(format!("String \"{}\" doesn't contains a command", text))
+                        }
+                    },
+                    &None => match msg.get_location() {
+                        &Some(ref loc) => Ok((String::from("set_location"), vec![loc.get_longitude().to_string(), loc.get_latitude().to_string()])),
+                        &None => Err(String::from("Unsupported message type")),
+                    }
+                }
+            },
+            &None => Err(String::from("Empty message")),
+        }
     }
 
     fn dispatch(&self, method: &str, args: Vec<String>, request: &Request) -> Result<JsonValue, String> {
@@ -57,24 +85,88 @@ impl Bot for BlasphemyBot {
 }
 
 impl BlasphemyBot {
-    fn about(&self, _request: &Request) -> Result<JsonValue, String> {
-        Err(String::from("about command"))
+    fn about(&self, request: &Request) -> Result<JsonValue, String> {
+        match request.get_message() {
+            &Some(ref msg) => self.api.send_message(
+                &msg.get_chat().get_id().to_string(),
+                "This bot can help you when you need to swear but you're out of words.\n\nDeveloped by @Nappa85 under GPLv4\nSource code: https://github.com/nappa85/Rustegram",
+                None, None, None, None),
+            &None => Err(String::from("Empty message")),
+        }
     }
 
-    fn help(&self, _request: &Request) -> Result<JsonValue, String> {
-        Err(String::from("help command"))
+    fn help(&self, request: &Request) -> Result<JsonValue, String> {
+        match request.get_message() {
+            &Some(ref msg) => self.api.send_message(
+                &msg.get_chat().get_id().to_string(),
+                "/swear - A generic swear\n\n/swearto - Swear about your favourite subject\nYou can pass an inline argument, or call the command and insert the subject when asked.\nFor example:\n/swearto the developer of @BlasphemyBot\n\n/blackhumor - Some good old black humor\n\n/suggest - Suggest an improvement to the developer\nYou can pass an inline argument, or call the command and insert the subject when asked.\nFor example:\n/suggest I have a new blackhumor line for you!",
+                None, None, None, None),
+            &None => Err(String::from("Empty message")),
+        }
     }
 
-    fn swear(&self, _request: &Request) -> Result<JsonValue, String> {
-        Err(String::from("swear command"))
+    fn swear(&self, request: &Request) -> Result<JsonValue, String> {
+        match request.get_message() {
+            &Some(ref msg) => self.api.send_message(
+                &msg.get_chat().get_id().to_string(),
+                &format!("{} {} {}", self.get_random_word_a()?, self.get_random_word_b()?, self.get_random_word_c()?),
+                None, None, None, None),
+            &None => Err(String::from("Empty message")),
+        }
     }
 
-    fn swearto(&self, _request: &Request, _args: Vec<String>) -> Result<JsonValue, String> {
-        Err(String::from("swearto command"))
+    //TODO: session
+    fn swearto(&self, request: &Request, args: Vec<String>) -> Result<JsonValue, String> {
+        let mut text = String::new();
+        for s in args {
+            text = format!("{} {}", text, s)
+        }
+
+        match request.get_message() {
+            &Some(ref msg) => self.api.send_message(
+                &msg.get_chat().get_id().to_string(),
+                &format!("{}{} {}", self.get_random_word_a()?, text, self.get_random_word_c()?),
+                None, None, None, None),
+            &None => Err(String::from("Empty message")),
+        }
     }
 
-    fn blackhumor(&self, _request: &Request) -> Result<JsonValue, String> {
-        Err(String::from("blackhumor command"))
+    fn blackhumor(&self, request: &Request) -> Result<JsonValue, String> {
+        match request.get_message() {
+            &Some(ref msg) => self.api.send_message(
+                &msg.get_chat().get_id().to_string(),
+                &self.get_random_black_humor()?,
+                None, None, None, None),
+            &None => Err(String::from("Empty message")),
+        }
+    }
+
+    fn get_random_word_a(&self) -> Result<String, String> {
+        self.get_random("WordsA")
+    }
+
+    fn get_random_word_b(&self) -> Result<String, String> {
+        self.get_random("WordsB")
+    }
+
+    fn get_random_word_c(&self) -> Result<String, String> {
+        self.get_random("WordsC")
+    }
+
+    fn get_random_black_humor(&self) -> Result<String, String> {
+        self.get_random("BlacHumor")
+    }
+
+    fn get_random(&self, key: &str) -> Result<String, String> {
+        (self.config.read().map_err(|e| format!("Unable to read config: {:?}", e)))
+            .and_then(|config| (config[key].as_array().ok_or(format!("{} is not an array", key)))
+                .and_then(|values| {
+                    let mut rng = thread_rng();
+                    let index = rng.gen_range::<usize>(0, values.len() - 1);
+                    values[index].as_str().ok_or(format!("{}[{}] is not a string", key, index))
+                })
+                .and_then(|s| Ok(s.to_owned()))
+            )
     }
 }
 

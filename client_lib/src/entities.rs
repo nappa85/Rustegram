@@ -1,6 +1,6 @@
 use std::fmt;
 
-/// #RequestType
+/// #Request
 /// This object represents a Telegram Request.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Request {
