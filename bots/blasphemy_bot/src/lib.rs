@@ -11,6 +11,7 @@ extern crate client_lib;
 extern crate toml;
 extern crate serde_json;
 extern crate rand;
+extern crate dynamic;
 
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -24,10 +25,12 @@ use toml::Value as TomlValue;
 
 use rand::{thread_rng, Rng};
 
+use dynamic::Dynamic;
+
 struct BlasphemyBot {
     api: Telegram,
     config: Arc<RwLock<TomlValue>>,
-    _session: Arc<RwLock<HashMap<String, JsonValue>>>,
+    session: Arc<RwLock<HashMap<String, Dynamic>>>,
 }
 
 impl Bot for BlasphemyBot {
@@ -35,7 +38,7 @@ impl Bot for BlasphemyBot {
         BlasphemyBot {
             api: api,
             config: config.clone(),
-            _session: session.clone(),
+            session: session.clone(),
         }
     }
 
@@ -117,16 +120,23 @@ impl BlasphemyBot {
 
     //TODO: session
     fn swearto(&self, request: &Request, args: Vec<String>) -> Result<JsonValue, String> {
-        let mut text = String::new();
-        for s in args {
-            text = format!("{} {}", text, s)
-        }
-
         match request.get_message() {
-            &Some(ref msg) => self.api.send_message(
-                &msg.get_chat().get_id().to_string(),
-                &format!("{}{} {}", self.get_random_word_a()?, text, self.get_random_word_c()?),
-                None, None, None, None),
+            &Some(ref msg) => {
+                if args.len() == 0 {
+                    (self.session.write().map_err(String::from("Unable to write lock session")))
+                        .and_then(|session| session["messages"])
+                }
+
+                let mut text = String::new();
+                for s in args {
+                    text = format!("{} {}", text, s)
+                }
+
+                self.api.send_message(
+                    &msg.get_chat().get_id().to_string(),
+                    &format!("{}{} {}", self.get_random_word_a()?, text, self.get_random_word_c()?),
+                    None, None, None, None)
+            },
             &None => Err(String::from("Empty message")),
         }
     }

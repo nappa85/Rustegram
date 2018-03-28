@@ -10,6 +10,7 @@
 extern crate client_lib;
 extern crate toml;
 extern crate serde_json;
+extern crate dynamic;
 
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -22,10 +23,12 @@ use serde_json::value::Value as JsonValue;
 
 use toml::Value as TomlValue;
 
+use dynamic::Dynamic;
+
 struct NoFlyBot {
     api: Telegram,
     config: Arc<RwLock<TomlValue>>,
-    _session: Arc<RwLock<HashMap<String, JsonValue>>>,
+    _session: Arc<RwLock<HashMap<String, Dynamic>>>,
 }
 
 impl Bot for NoFlyBot {

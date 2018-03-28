@@ -3,6 +3,7 @@ extern crate notify;
 extern crate serde_json;
 extern crate toml;
 extern crate client_lib;
+extern crate dynamic;
 
 use std::sync::{Arc, RwLock};
 use std::sync::mpsc::{channel, Receiver, TryRecvError};
@@ -23,11 +24,12 @@ use self::toml::Value as TomlValue;
 
 use self::client_lib::entities::Request;
 
-/// 
+use self::dynamic::Dynamic;
+
 pub struct Plugin {
     name: String,
     config: Arc<RwLock<TomlValue>>,
-    session: Arc<RwLock<HashMap<String, JsonValue>>>,
+    session: Arc<RwLock<HashMap<String, Dynamic>>>,
     plugins: Vec<(Arc<Lib>, Arc<Symbol<'static, extern "C" fn(config: *const Arc<RwLock<TomlValue>>, session: *const Arc<RwLock<HashMap<String, JsonValue>>>, secret: &str, request: *const &Request) -> *const Result<JsonValue, String>>>)>,
 }
 
