@@ -8,10 +8,9 @@
 //! Provides a facility to call Telegram Bots API, a Trait for Bot structs
 //! and classes for all involved entities.
 
-#[macro_use]
-extern crate serde_derive;
+#[macro_use] extern crate serde_derive;
 extern crate serde;
-extern crate serde_json;
+#[macro_use] extern crate serde_json;
 extern crate reqwest;
 extern crate toml;
 
