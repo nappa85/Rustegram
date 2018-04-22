@@ -11,4 +11,3 @@ crate-type = ["dylib"]
 client_lib = { path = "../../client_lib" }
 toml = "0.4"
 serde_json = "1.0"
-dynamic = "0.2"

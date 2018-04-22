@@ -29,6 +29,9 @@ use toml::Value as TomlValue;
 /// Telegram bot entities
 pub mod entities;
 
+/// Session handler
+pub mod session;
+
 /// This enum describes all possible call params
 pub enum Param<'a> {
     /// a simple string value

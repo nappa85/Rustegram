@@ -10,29 +10,26 @@
 extern crate client_lib;
 extern crate toml;
 extern crate serde_json;
-extern crate dynamic;
 
-use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::process::Command;
 
 use client_lib::{Bot, Telegram};
 use client_lib::entities::{Request, Message, ParseMode};
+use client_lib::session::Session;
 
 use serde_json::value::Value as JsonValue;
 
 use toml::Value as TomlValue;
 
-use dynamic::Dynamic;
-
 struct NoFlyBot {
     api: Telegram,
     config: Arc<RwLock<TomlValue>>,
-    _session: Arc<RwLock<HashMap<String, Dynamic>>>,
+    _session: Arc<RwLock<Session>>,
 }
 
 impl Bot for NoFlyBot {
-    fn new(api: Telegram, config: &Arc<RwLock<TomlValue>>, session: &Arc<RwLock<HashMap<String, JsonValue>>>) -> NoFlyBot {
+    fn new(api: Telegram, config: &Arc<RwLock<TomlValue>>, session: &Arc<RwLock<Session>>) -> NoFlyBot {
         NoFlyBot {
             api: api,
             config: config.clone(),
@@ -122,7 +119,7 @@ impl NoFlyBot {
 
 /// public C ABI to call the bot
 #[no_mangle]
-pub extern fn init_bot(ptr_config: *const Arc<RwLock<TomlValue>>, ptr_session: *const Arc<RwLock<HashMap<String, JsonValue>>>, secret: &str, ptr_request: *const &Request) -> *const Result<JsonValue, String> {
+pub extern fn init_bot(ptr_config: *const Arc<RwLock<TomlValue>>, ptr_session: *const Arc<RwLock<Session>>, secret: &str, ptr_request: *const &Request) -> *const Result<JsonValue, String> {
     let config = unsafe {
         assert!(!ptr_config.is_null());
         &*ptr_config
@@ -146,7 +143,7 @@ pub extern fn init_bot(ptr_config: *const Arc<RwLock<TomlValue>>, ptr_session: *
 mod tests {
     use super::{toml, serde_json, init_bot};
     use super::client_lib::entities::Request;
-    use std::collections::HashMap;
+    use super::client_lib::session::Session;
     use std::sync::{Arc, RwLock};
 
     #[test]
@@ -210,7 +207,7 @@ find = "echo"
         for s in messages.iter() {
             let request: Request = serde_json::from_str(s).unwrap();
 
-            assert_eq!(init_bot(Box::into_raw(Box::new(Arc::new(RwLock::new(config)))), Box::into_raw(Box::new(Arc::new(RwLock::new(HashMap::new())))), "prova", Box::into_raw(Box::new(request))), Err(String::from("TODO")));
+            assert_eq!(init_bot(Box::into_raw(Box::new(Arc::new(RwLock::new(config)))), Box::into_raw(Box::new(Arc::new(RwLock::new(Session::new())))), "prova", Box::into_raw(Box::new(request))), Err(String::from("TODO")));
         }
     }
 }

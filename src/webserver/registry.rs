@@ -3,7 +3,6 @@ extern crate notify;
 extern crate serde_json;
 extern crate toml;
 extern crate client_lib;
-extern crate dynamic;
 
 use std::sync::{Arc, RwLock};
 use std::sync::mpsc::{channel, Receiver, TryRecvError};
@@ -23,14 +22,13 @@ use self::serde_json::value::Value as JsonValue;
 use self::toml::Value as TomlValue;
 
 use self::client_lib::entities::Request;
-
-use self::dynamic::Dynamic;
+use self::client_lib::session::Session;
 
 pub struct Plugin {
     name: String,
     config: Arc<RwLock<TomlValue>>,
-    session: Arc<RwLock<HashMap<String, Dynamic>>>,
-    plugins: Vec<(Arc<Lib>, Arc<Symbol<'static, extern "C" fn(config: *const Arc<RwLock<TomlValue>>, session: *const Arc<RwLock<HashMap<String, JsonValue>>>, secret: &str, request: *const &Request) -> *const Result<JsonValue, String>>>)>,
+    session: Arc<RwLock<Session>>,
+    plugins: Vec<(Arc<Lib>, Arc<Symbol<'static, extern "C" fn(config: *const Arc<RwLock<TomlValue>>, session: *const Arc<RwLock<Session>>, secret: &str, request: *const &Request) -> *const Result<JsonValue, String>>>)>,
 }
 
 impl Plugin {
@@ -38,7 +36,7 @@ impl Plugin {
         Ok(Plugin {
             name: name.to_owned(),
             config: Arc::new(RwLock::new(Plugin::load_config(name)?)),
-            session: Arc::new(RwLock::new(HashMap::new())),
+            session: Arc::new(RwLock::new(Session::new())),
             plugins: Vec::new()
         })
     }
@@ -46,7 +44,7 @@ impl Plugin {
     fn add_plugin(&mut self, plugin: &Arc<Lib>) {
         match unsafe { plugin.lib.get(b"init_bot\0") } {
             Ok(temp) => {
-                let f: Symbol<extern "C" fn(config: *const Arc<RwLock<TomlValue>>, session: *const Arc<RwLock<HashMap<String, JsonValue>>>, secret: &str, request: *const &Request) -> *const Result<JsonValue, String>> = temp;
+                let f: Symbol<extern "C" fn(config: *const Arc<RwLock<TomlValue>>, session: *const Arc<RwLock<Session>>, secret: &str, request: *const &Request) -> *const Result<JsonValue, String>> = temp;
                 self.plugins.push((plugin.clone(), Arc::new(unsafe { transmute(f) })));
             },
             Err(e) => println!("Failed to load symbol for {}: {:?}", self.name, e),

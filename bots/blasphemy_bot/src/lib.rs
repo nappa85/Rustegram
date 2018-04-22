@@ -11,13 +11,12 @@ extern crate client_lib;
 extern crate toml;
 extern crate serde_json;
 extern crate rand;
-extern crate dynamic;
 
-use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 use client_lib::{Bot, Telegram};
 use client_lib::entities::Request;
+use client_lib::session::Session;
 
 use serde_json::value::Value as JsonValue;
 
@@ -25,16 +24,14 @@ use toml::Value as TomlValue;
 
 use rand::{thread_rng, Rng};
 
-use dynamic::Dynamic;
-
 struct BlasphemyBot {
     api: Telegram,
     config: Arc<RwLock<TomlValue>>,
-    session: Arc<RwLock<HashMap<String, Dynamic>>>,
+    session: Arc<RwLock<Session>>,
 }
 
 impl Bot for BlasphemyBot {
-    fn new(api: Telegram, config: &Arc<RwLock<TomlValue>>, session: &Arc<RwLock<HashMap<String, JsonValue>>>) -> BlasphemyBot {
+    fn new(api: Telegram, config: &Arc<RwLock<TomlValue>>, session: &Arc<RwLock<Session>>) -> BlasphemyBot {
         BlasphemyBot {
             api: api,
             config: config.clone(),
@@ -182,7 +179,7 @@ impl BlasphemyBot {
 
 /// public C ABI to call the bot
 #[no_mangle]
-pub extern fn init_bot(ptr_config: *const Arc<RwLock<TomlValue>>, ptr_session: *const Arc<RwLock<HashMap<String, JsonValue>>>, secret: &str, ptr_request: *const &Request) -> *const Result<JsonValue, String> {
+pub extern fn init_bot(ptr_config: *const Arc<RwLock<TomlValue>>, ptr_session: *const Arc<RwLock<Session>>, secret: &str, ptr_request: *const &Request) -> *const Result<JsonValue, String> {
     let config = unsafe {
         assert!(!ptr_config.is_null());
         &*ptr_config
@@ -206,14 +203,14 @@ pub extern fn init_bot(ptr_config: *const Arc<RwLock<TomlValue>>, ptr_session: *
 mod tests {
     use super::{toml, serde_json, init_bot};
     use super::client_lib::entities::Request;
-    use std::collections::HashMap;
+    use super::client_lib::session::Session;
     use std::sync::{Arc, RwLock};
 
     #[test]
     fn it_works() {
         let config: toml::Value = toml::from_str(r#"SECRET = "prova"
 HTTP_TOKEN = "test""#).unwrap();
-        let session = Arc::new(RwLock::new(HashMap::new()));
+        let session = Arc::new(RwLock::new(Session::new()));
         let request: Request = serde_json::from_str(r#"{
 "update_id":10000,
 "message":{
