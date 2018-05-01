@@ -62,7 +62,14 @@ impl Bot for BlasphemyBot {
                             (self.session.read().map_err(|e| format!("Unable to read lock session: {:?}", e)))
                                 .and_then(|session| session.get(&BlasphemyBot::get_session_key(msg)).ok_or(format!("String \"{}\" doesn't contains a command", text)))
                                 .and_then(|json| json.as_str().ok_or(format!("Session value mismatch: {:?}", json))
-                                    .and_then(|value| Ok((value.to_string(), Vec::new()))))
+                                    .and_then(|value| {
+                                        let mut words: Vec<String> = Vec::new();
+                                        for s in text.split(' ') {
+                                            words.push(String::from(s));
+                                        }
+
+                                        Ok((value.to_string(), words))
+                                    }))
                         }
                     },
                     &None => Err(String::from("Unsupported message type")),
