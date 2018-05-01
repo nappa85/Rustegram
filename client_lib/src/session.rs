@@ -92,10 +92,11 @@ impl Session {
 
                 for i in &keys {
                     if obj_a.contains_key(i) && obj_b.contains_key(i) {
-                        obj_a[i] = Session::aggregate(&obj_a[i], &obj_b[i]);
+                        let temp = Session::aggregate(&obj_a[i], &obj_b[i]);
+                        obj_a.insert(i.to_string(), temp);
                     }
                     else if obj_b.contains_key(i) {
-                        obj_a[i] = obj_b[i].clone();
+                        obj_a.insert(i.to_string(), obj_b[i].clone());
                     }
                 }
             }
