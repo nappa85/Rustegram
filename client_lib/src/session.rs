@@ -18,8 +18,8 @@ impl Session {
     }
 
     /// retrieves a session aggregate
-    pub fn get(&mut self, key: String) -> Option<Value> {
-        match self.vars.get(&key) {
+    pub fn get(&self, key: &str) -> Option<Value> {
+        match self.vars.get(key) {
             Some(v) => {
                 if v.len() == 0 {
                     return None;
@@ -36,14 +36,14 @@ impl Session {
     }
 
     /// replaces a session
-    pub fn set(&mut self, key: String, value: Value) {
-        self.vars.insert(key, vec![value]);
+    pub fn set(&mut self, key: &str, value: Value) {
+        self.vars.insert(key.to_string(), vec![value]);
     }
 
     /// appends a value to a session
-    pub fn add(&mut self, key: String, value: Value) {
-        if self.vars.contains_key(&key) {
-            match self.vars.get_mut(&key) {
+    pub fn add(&mut self, key: &str, value: Value) {
+        if self.vars.contains_key(key) {
+            match self.vars.get_mut(key) {
                 Some(v) => {
                     v.push(value);
                     return;
@@ -117,10 +117,17 @@ mod tests {
     #[test]
     fn it_works() {
         let mut session = Session::new();
-        let key = String::from("test");
-        session.add(key.clone(), json!({"a": 123}));
-        session.add(key.clone(), json!({"b": 456}));
-        session.add(key.clone(), json!({"a": 456}));
+        let key = "test";
+        session.add(key, json!({"a": 123}));
+        session.add(key, json!({"b": 456}));
+        session.add(key, json!({"a": 456}));
         assert_eq!(session.get(key).unwrap(), json!({"a": 456, "b": 456}));
+        session.add(key, json!({"b": {"c": {"d": true}}}));
+        session.add(key, json!({"b": {"c": {"e": 12.25}}}));
+        session.add(key, json!({"b": {"c": {"d": "false"}}}));
+        assert_eq!(session.get(key).unwrap(), json!({"a": 456, "b": {"c": {"d": "false", "e": 12.25}}}));
+        session.add(key, json!({"f": [1, 2, 3]}));
+        session.add(key, json!({"f": [4, 5, 6]}));
+        assert_eq!(session.get(key).unwrap(), json!({"a": 456, "b": {"c": {"d": "false", "e": 12.25}}, "f": [4, 5, 6]}));
     }
 }

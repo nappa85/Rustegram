@@ -224,6 +224,11 @@ pub struct Message {
 }
 
 impl Message {
+    /// returns id
+    pub fn get_id(&self) -> u64 {
+        self.message_id
+    }
+
     /// returns from
     pub fn get_from(&self) -> &User {
         &self.from
@@ -1614,6 +1619,41 @@ pub enum ReplyMarkup {
     ReplyKeyboardRemove(ReplyKeyboardRemove),
     /// see InlineKeyboardMarkup
     InlineKeyboard(InlineKeyboardMarkup),
+}
+
+impl ReplyMarkup {
+    /// helper to create a ReplyMarkup::ForceReply
+    pub fn force_reply(force_reply: bool, selective: Option<bool>) -> ReplyMarkup {
+        ReplyMarkup::ForceReply(ForceReply {
+            force_reply: force_reply,
+            selective: selective,
+        })
+    }
+
+    /// helper to create a ReplyMarkup::ReplyKeyboard
+    pub fn reply_keyboard(keyboard: Vec<Vec<KeyboardButton>>, resize_keyboard: Option<bool>, one_time_keyboard: Option<bool>, selective: Option<bool>) -> ReplyMarkup {
+        ReplyMarkup::ReplyKeyboard(ReplyKeyboardMarkup {
+            keyboard: keyboard,
+            resize_keyboard: resize_keyboard,
+            one_time_keyboard: one_time_keyboard,
+            selective: selective,
+        })
+    }
+
+    /// helper to create a ReplyMarkup::ReplyKeyboardRemove
+    pub fn reply_keyboard_remove(remove_keyboard: bool, selective: Option<bool>) -> ReplyMarkup {
+        ReplyMarkup::ReplyKeyboardRemove(ReplyKeyboardRemove {
+            remove_keyboard: remove_keyboard,
+            selective: selective,
+        })
+    }
+
+    /// helper to create a ReplyMarkup::InlineKeyboard
+    pub fn inline_keyboard(inline_keyboard: Vec<Vec<InlineKeyboardButton>>) -> ReplyMarkup {
+        ReplyMarkup::InlineKeyboard(InlineKeyboardMarkup {
+            inline_keyboard: inline_keyboard,
+        })
+    }
 }
 
 #[cfg(test)]

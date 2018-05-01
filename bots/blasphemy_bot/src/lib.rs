@@ -9,13 +9,13 @@
 
 extern crate client_lib;
 extern crate toml;
-extern crate serde_json;
+#[macro_use] extern crate serde_json;
 extern crate rand;
 
 use std::sync::{Arc, RwLock};
 
 use client_lib::{Bot, Telegram};
-use client_lib::entities::Request;
+use client_lib::entities::{Message, Request, ReplyMarkup};
 use client_lib::session::Session;
 
 use serde_json::value::Value as JsonValue;
@@ -59,13 +59,13 @@ impl Bot for BlasphemyBot {
                             Ok((String::from(chars.as_str()), words))
                         }
                         else {
-                            Err(format!("String \"{}\" doesn't contains a command", text))
+                            (self.session.read().map_err(|e| format!("Unable to read lock session: {:?}", e)))
+                                .and_then(|session| session.get(&BlasphemyBot::get_session_key(msg)).ok_or(format!("String \"{}\" doesn't contains a command", text)))
+                                .and_then(|json| json.as_str().ok_or(format!("Session value mismatch: {:?}", json))
+                                    .and_then(|value| Ok((value.to_string(), Vec::new()))))
                         }
                     },
-                    &None => match msg.get_location() {
-                        &Some(ref loc) => Ok((String::from("set_location"), vec![loc.get_longitude().to_string(), loc.get_latitude().to_string()])),
-                        &None => Err(String::from("Unsupported message type")),
-                    }
+                    &None => Err(String::from("Unsupported message type")),
                 }
             },
             &None => Err(String::from("Empty message")),
@@ -120,8 +120,16 @@ impl BlasphemyBot {
         match request.get_message() {
             &Some(ref msg) => {
                 if args.len() == 0 {
-                    (self.session.write().map_err(String::from("Unable to write lock session")))
-                        .and_then(|session| session["messages"])
+                    return (self.session.write().map_err(|e| format!("Unable to write lock session: {:?}", e)))
+                        .and_then(|mut session| {
+                            session.set(&BlasphemyBot::get_session_key(msg), json!("swearto"));
+
+                            self.api.send_message(
+                                &msg.get_chat().get_id().to_string(),
+                                "Now insert a Subject for the swear",
+                                Some(&msg.get_id().to_string()), None, None,
+                                Some(ReplyMarkup::force_reply(true, Some(true))))
+                        });
                 }
 
                 let mut text = String::new();
@@ -174,6 +182,10 @@ impl BlasphemyBot {
                 })
                 .and_then(|s| Ok(s.to_owned()))
             )
+    }
+
+    fn get_session_key(msg: &Message) -> String {
+        msg.get_from().get_id().to_string() + "." + &msg.get_chat().get_id().to_string()
     }
 }
 

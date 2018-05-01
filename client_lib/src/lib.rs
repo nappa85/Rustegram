@@ -31,6 +31,8 @@ pub mod entities;
 /// Session handler
 pub mod session;
 
+use session::Session;
+
 /// This enum describes all possible call params
 pub enum Param<'a> {
     /// a simple string value
@@ -56,8 +58,8 @@ pub struct Telegram {
 
 impl Telegram {
     /// given a Bot constructor, performs all mandatory checks before instancing it
-    pub fn init_bot<B, F>(constructor: F, secret: &str, config: &Arc<RwLock<TomlValue>>, session: &Arc<RwLock<HashMap<String, JsonValue>>>) -> Result<B, String>
-        where F: Fn(Telegram, &Arc<RwLock<TomlValue>>, &Arc<RwLock<HashMap<String, JsonValue>>>) -> B,
+    pub fn init_bot<B, F>(constructor: F, secret: &str, config: &Arc<RwLock<TomlValue>>, session: &Arc<RwLock<Session>>) -> Result<B, String>
+        where F: Fn(Telegram, &Arc<RwLock<TomlValue>>, &Arc<RwLock<Session>>) -> B,
             B: Bot
     {
         (config.read().map_err(|e| format!("Error read locking configuration: {:?}", e)))
@@ -360,7 +362,7 @@ impl Telegram {
 /// base trait for Telegram bots
 pub trait Bot {
     /// creates a new instance of the Bot
-    fn new(api: Telegram, config: &Arc<RwLock<TomlValue>>, session: &Arc<RwLock<HashMap<String, JsonValue>>>) -> Self;
+    fn new(api: Telegram, config: &Arc<RwLock<TomlValue>>, session: &Arc<RwLock<Session>>) -> Self;
 
     /// uses the correct method to retrieve method and arguments from Request, then dispatches it
     fn parse(&self, request: &entities::Request) -> Result<JsonValue, String> {
