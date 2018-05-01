@@ -248,6 +248,11 @@ impl Message {
     pub fn get_location(&self) -> &Option<Location> {
         &self.location
     }
+
+    /// returns new chat members
+    pub fn get_new_chat_members(&self) -> &Option<Vec<User>> {
+        &self.new_chat_members
+    }
 }
 
 /// #MessageEntity
@@ -476,6 +481,21 @@ pub struct InlineKeyboardButton {
     callback_game: Option<CallbackGame>,
     #[serde(default)]
     pay: Option<bool>,
+}
+
+impl InlineKeyboardButton {
+    /// constructor
+    pub fn new(text: String, url: Option<String>, callback_data: Option<String>, switch_inline_query: Option<String>, switch_inline_query_current_chat: Option<String>, callback_game: Option<CallbackGame>, pay: Option<bool>) -> InlineKeyboardButton {
+        InlineKeyboardButton {
+            text: text,
+            url: url,
+            callback_data: callback_data,
+            switch_inline_query: switch_inline_query,
+            switch_inline_query_current_chat: switch_inline_query_current_chat,
+            callback_game: callback_game
+            pay: pay,
+        }
+    }
 }
 
 /// #CallbackQuery
