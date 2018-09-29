@@ -3,16 +3,25 @@ name = "rustegram"
 version = "0.1.0"
 authors = ["Marco Napetti <marco.napetti@gmail.com>"]
 
+[features]
+default = []
+https = ["rustls", "tokio-tcp", "tokio-rustls"]
+
 [dependencies]
-futures = "0.1.11"
-hyper = "0.11"
-native-tls = "0.1"
-tokio-tls = { version = "0.1", features = [ "tokio-proto" ] }
-tokio-proto = "0.1"
-regex = "0.2"
-lazy_static = "1.0.0"
+futures = "0.1"
+hyper = "0.12"
+http = "0.1"
+rustls = { version = "0.11", optional = true }
+tokio-tcp = { version = "0.1", optional = true }
+tokio-rustls = { version = "0.4", optional = true }
+regex = "1.0"
+lazy_static = "1.1"
 toml = "0.4"
-dynamic_reload = "0.3.0"
+dynamic_reload = "0.3"
+serde  = "1.0"
+serde_derive = "1.0"
 serde_json = "1.0"
-notify = "4.0.0"
+notify = "4.0"
 client_lib = { path = "./client_lib" }
+log = "0.4"
+env_logger = "0.5"

@@ -4,7 +4,7 @@ extern crate serde_json;
 extern crate toml;
 extern crate client_lib;
 
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, RwLock, Mutex};
 use std::sync::mpsc::{channel, Receiver, TryRecvError};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -23,6 +23,11 @@ use self::toml::Value as TomlValue;
 
 use self::client_lib::entities::Request;
 use self::client_lib::session::Session;
+
+//singleton
+lazy_static! {
+    static ref REGISTRY: Arc<Mutex<PluginRegistry>> = Arc::new(Mutex::new(PluginRegistry::new()));
+}
 
 pub struct Plugin {
     name: String,
@@ -72,7 +77,7 @@ impl Plugin {
         }
     }
 
-    pub fn run(&self, secret: String, request: &Request) -> Result<&JsonValue, String> {
+    pub fn run(&self, secret: String, request: &Request) -> Result<JsonValue, String> {
         if self.plugins.len() == 0 {
             return Err(format!("Lib {} not loaded", self.name));
         }
@@ -86,8 +91,8 @@ impl Plugin {
             }
             else {
                 match *res {
-                    Ok(ref v) => Ok(v),
-                    Err(ref e) => Err(e.to_string()),
+                    Ok(ref v) => Ok(v.clone()),
+                    Err(ref e) => Err(e.clone()),
                 }
             }
         }
@@ -126,7 +131,7 @@ pub struct PluginRegistry {
 }
 
 impl PluginRegistry {
-    pub fn new() -> PluginRegistry {
+    fn new() -> PluginRegistry {
         let (tx, rx) = channel();
 
         //those expect are fine, if it fails we want to panic!
@@ -144,7 +149,14 @@ impl PluginRegistry {
         }
     }
 
-    pub fn load_plugin(&mut self, lib: &str) -> Result<&mut Plugin, String> {
+    pub fn run_plugin<'a>(lib: &str, secret: String, request: &Request) -> Result<JsonValue, String> {
+        let reg = REGISTRY.clone();
+        let mut pr = reg.lock().map_err(|e| format!("Unable to lock plugin registry: {}", e))?;
+        let plugin = pr._load_plugin(lib)?;
+        plugin.run(secret, request)
+    }
+
+    fn _load_plugin(&mut self, lib: &str) -> Result<&mut Plugin, String> {
         loop {
             match self.watch_recv.try_recv() {
                 Ok(event) => match event {

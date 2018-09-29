@@ -492,7 +492,7 @@ impl InlineKeyboardButton {
             callback_data: callback_data,
             switch_inline_query: switch_inline_query,
             switch_inline_query_current_chat: switch_inline_query_current_chat,
-            callback_game: callback_game
+            callback_game: callback_game,
             pay: pay,
         }
     }
