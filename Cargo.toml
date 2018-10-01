@@ -25,3 +25,4 @@ notify = "4.0"
 client_lib = { path = "./client_lib" }
 log = "0.4"
 env_logger = "0.5"
+parking_lot = "0.6"

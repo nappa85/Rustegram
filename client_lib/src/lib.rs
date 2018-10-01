@@ -13,10 +13,10 @@ extern crate serde;
 #[macro_use] extern crate serde_json;
 extern crate reqwest;
 extern crate toml;
+extern crate parking_lot;
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::sync::RwLock;
 
 use reqwest::multipart::Form;
 use reqwest::Client;
@@ -24,6 +24,8 @@ use reqwest::Client;
 use serde_json::value::Value as JsonValue;
 
 use toml::Value as TomlValue;
+
+use parking_lot::RwLock;
 
 /// Telegram bot entities
 pub mod entities;
@@ -62,21 +64,20 @@ impl Telegram {
         where F: Fn(Telegram, &Arc<RwLock<TomlValue>>, &Arc<RwLock<Session>>) -> B,
             B: Bot
     {
-        (config.read().map_err(|e| format!("Error read locking configuration: {:?}", e)))
-            .and_then(|cnf| {
-                cnf.get("SECRET").ok_or(String::from("SECRET config value not found"))
-                    .and_then(|secret_value| secret_value.as_str().ok_or(String::from("Error interpreting SECRET config value")))
-                    .and_then(|cnf_secret| {
-                        if secret != cnf_secret {
-                            Err(String::from("Secret mismatch"))
-                        }
-                        else {
-                            cnf.get("HTTP_TOKEN").ok_or(String::from("HTTP_TOKEN config value not found"))
-                        }
-                    })
-                    .and_then(|token_value| token_value.as_str().ok_or(String::from("Error interpreting HTTP_TOKEN config value")))
-                    .and_then(|cnf_token| Ok(constructor(Telegram::new(cnf_token), config, session)))
+        let cnf = config.read();
+
+        cnf.get("SECRET").ok_or(String::from("SECRET config value not found"))
+            .and_then(|secret_value| secret_value.as_str().ok_or(String::from("Error interpreting SECRET config value")))
+            .and_then(|cnf_secret| {
+                if secret != cnf_secret {
+                    Err(String::from("Secret mismatch"))
+                }
+                else {
+                    cnf.get("HTTP_TOKEN").ok_or(String::from("HTTP_TOKEN config value not found"))
+                }
             })
+            .and_then(|token_value| token_value.as_str().ok_or(String::from("Error interpreting HTTP_TOKEN config value")))
+            .and_then(|cnf_token| Ok(constructor(Telegram::new(cnf_token), config, session)))
     }
 
     /// internal constructor

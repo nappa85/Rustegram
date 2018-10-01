@@ -1,11 +1,10 @@
 extern crate dynamic_reload;
 extern crate notify;
-extern crate serde_json;
-extern crate toml;
-extern crate client_lib;
+extern crate parking_lot;
 
-use std::sync::{Arc, RwLock, Mutex};
-use std::sync::mpsc::{channel, Receiver, TryRecvError};
+use std::thread::{spawn, JoinHandle};
+use std::sync::Arc;
+use std::sync::mpsc::channel;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -13,20 +12,22 @@ use std::fs::File;
 use std::io::Read;
 use std::mem::transmute;
 
+use serde_json::value::Value as JsonValue;
+
+use toml::{self, Value as TomlValue};
+
+use client_lib::entities::Request;
+use client_lib::session::Session;
+
 use self::dynamic_reload::{DynamicReload, Search, Lib, UpdateState, Symbol, PlatformName};
 
 use self::notify::{RecommendedWatcher, Watcher, RecursiveMode, DebouncedEvent};
 
-use self::serde_json::value::Value as JsonValue;
-
-use self::toml::Value as TomlValue;
-
-use self::client_lib::entities::Request;
-use self::client_lib::session::Session;
+use self::parking_lot::{RwLock, Mutex};
 
 //singleton
 lazy_static! {
-    static ref REGISTRY: Arc<Mutex<PluginRegistry>> = Arc::new(Mutex::new(PluginRegistry::new()));
+    static ref REGISTRY: Arc<RwLock<PluginRegistry>> = Arc::new(RwLock::new(PluginRegistry::new()));
 }
 
 pub struct Plugin {
@@ -52,7 +53,7 @@ impl Plugin {
                 let f: Symbol<extern "C" fn(config: *const Arc<RwLock<TomlValue>>, session: *const Arc<RwLock<Session>>, secret: &str, request: *const &Request) -> *const Result<JsonValue, String>> = temp;
                 self.plugins.push((plugin.clone(), Arc::new(unsafe { transmute(f) })));
             },
-            Err(e) => println!("Failed to load symbol for {}: {:?}", self.name, e),
+            Err(e) => error!("Failed to load symbol for {}: {:?}", self.name, e),
         }
     }
 
@@ -73,7 +74,7 @@ impl Plugin {
         match state {
             UpdateState::Before => Self::unload_plugins(self, lib.unwrap()),
             UpdateState::After => Self::reload_plugin(self, lib.unwrap()),
-            UpdateState::ReloadFailed(_) => println!("Failed to reload"),
+            UpdateState::ReloadFailed(_) => error!("Failed to reload"),
         }
     }
 
@@ -99,14 +100,10 @@ impl Plugin {
     }
 
     fn set_config(&self, lib: &str) -> Result<(), String> {
-        match self.config.write() {
-            Ok(mut config) => {
-                *config = Plugin::load_config(lib)?;
-                println!("Reloaded config for {}", lib);
-                Ok(())
-            },
-            Err(e) => Err(format!("{:?}", e)),
-        }
+        let mut config = self.config.write();
+        *config = Plugin::load_config(lib)?;
+        info!("Reloaded config for {}", lib);
+        Ok(())
     }
 
     fn load_config(lib: &str) -> Result<TomlValue, String> {
@@ -124,80 +121,88 @@ impl Plugin {
 }
 
 pub struct PluginRegistry {
-    handler: DynamicReload<'static>,
-    libs: HashMap<String, Plugin>,
-    _watcher: RecommendedWatcher,
-    watch_recv: Receiver<DebouncedEvent>,
+    handler: Mutex<DynamicReload<'static>>,
+    libs: RwLock<HashMap<String, RwLock<Plugin>>>,
+    _config_thread: JoinHandle<()>,
 }
 
 impl PluginRegistry {
     fn new() -> PluginRegistry {
-        let (tx, rx) = channel();
-
-        //those expect are fine, if it fails we want to panic!
-        let mut watcher: RecommendedWatcher = Watcher::new(tx, Duration::from_secs(2)).expect("Unable to init config watcher");
-        watcher.watch(Path::new("config"), RecursiveMode::NonRecursive).expect("Unable to watch config dir");
-
         // Setup the reload handler. A temporary directory will be created inside the tmp folder
         // where plugins will be loaded from. That is because on some OS:es loading a shared lib
         // will lock the file so we can't overwrite it so this works around that issue.
         PluginRegistry {
-            handler: DynamicReload::new(Some(vec!["bots"]), Some("tmp"), Search::Default),
-            libs: HashMap::new(),
-            _watcher: watcher,
-            watch_recv: rx,
+            handler: Mutex::new(DynamicReload::new(Some(vec!["bots"]), Some("tmp"), Search::Default)),
+            libs: RwLock::new(HashMap::new()),
+            _config_thread: spawn(move || {
+                let (tx, rx) = channel();
+
+                //those expect are fine, if it fails we want to panic!
+                let mut watcher: RecommendedWatcher = Watcher::new(tx, Duration::from_secs(2)).expect("Unable to init config watcher");
+                watcher.watch(Path::new("config"), RecursiveMode::NonRecursive).expect("Unable to watch config dir");
+
+                loop {
+                    match rx.recv() {
+                        Ok(event) => match event {
+                            DebouncedEvent::Create(path) | DebouncedEvent::Write(path) => match path.as_path().file_stem().and_then(|stem| stem.to_str()) {
+                                Some(filename) => {
+                                    let reg = REGISTRY.clone();
+                                    let singleton = reg.read();
+                                    let libs = singleton.libs.read();
+                                    if libs.contains_key(filename) {
+                                        match libs.get(filename)
+                                                .ok_or_else(|| format!("Plugin disappeared: {}", filename))
+                                                .and_then(|plugin| plugin.write().set_config(filename)) {
+                                            Err(e) => error!("{}", e),
+                                            _ => {},
+                                        }
+                                    }
+                                },
+                                None => {},
+                            },
+                            _ => {},
+                        },
+                        Err(e) => error!("watch error: {:?}", e),
+                    }
+                }
+            }),
         }
     }
 
     pub fn run_plugin<'a>(lib: &str, secret: String, request: &Request) -> Result<JsonValue, String> {
         let reg = REGISTRY.clone();
-        let mut pr = reg.lock().map_err(|e| format!("Unable to lock plugin registry: {}", e))?;
-        let plugin = pr._load_plugin(lib)?;
-        plugin.run(secret, request)
+        let pr = reg.read();
+        pr._run_plugin(lib, secret, request)
     }
 
-    fn _load_plugin(&mut self, lib: &str) -> Result<&mut Plugin, String> {
-        loop {
-            match self.watch_recv.try_recv() {
-                Ok(event) => match event {
-                    DebouncedEvent::Create(path) | DebouncedEvent::Write(path) => match path.as_path().file_stem() {
-                        Some(stem) => {
-                            match stem.to_str() {
-                                Some(filename) => if self.libs.contains_key(filename) {
-                                    match self.libs.get(filename) {
-                                        Some(plugin) => plugin.set_config(filename)?,
-                                        None => { return Err(format!("Plugin disappeared: {}", filename)); },
-                                    }
-                                },
-                                None => {},
-                            }
-                        },
-                        None => {},
+    fn _run_plugin(&self, lib: &str, secret: String, request: &Request) -> Result<JsonValue, String> {
+        {
+            let libs = self.libs.read();
+            if libs.contains_key(lib) {
+                match libs.get(lib) {
+                    Some(plugin) => {
+                        self.handler.lock().update(Plugin::reload_callback, &mut plugin.write());
+                        return plugin.read().run(secret, request);
                     },
-                    _ => {},
-                },
-                Err(e) => if e == TryRecvError::Empty { break; } else { println!("watch error: {:?}", e) },
+                    None => { return Err(format!("Plugin disappeared: {}", lib)); },
+                }
             }
         }
 
-        if self.libs.contains_key(lib) {
-            match self.libs.get_mut(lib) {
-                Some(mut plugin) => {
-                    self.handler.update(Plugin::reload_callback, &mut plugin);
-                    return Ok(plugin);
-                },
-                None => { return Err(format!("Plugin disappeared: {}", lib)); },
-            }
-        }
-
-        match self.handler.add_library(lib, PlatformName::Yes) {
+        match self.handler.lock().add_library(lib, PlatformName::Yes) {
             Ok(plug) => {
-                self.libs.insert(lib.to_owned(), Plugin::new(lib)?);
-                match self.libs.get_mut(lib) {
-                    Some(mut plugin) => {
-                        plugin.add_plugin(&plug);
-                        self.handler.update(Plugin::reload_callback, &mut plugin);
-                        Ok(plugin)
+                {
+                    self.libs.write().insert(lib.to_owned(), RwLock::new(Plugin::new(lib)?));
+                }
+                let libs = self.libs.read();
+                match libs.get(lib) {
+                    Some(plugin) => {
+                        {
+                            let mut wplugin = plugin.write();
+                            wplugin.add_plugin(&plug);
+                            self.handler.lock().update(Plugin::reload_callback, &mut wplugin);
+                        }
+                        plugin.read().run(secret, request)
                     },
                     None => Err(format!("Plugin disappeared: {}", lib)),
                 }

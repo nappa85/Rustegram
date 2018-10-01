@@ -105,6 +105,26 @@ impl User {
     pub fn get_id(&self) -> i64 {
         self.id
     }
+
+    /// returns a link to Telegram profile
+    pub fn get_link(&self, mode: ParseMode) -> String {
+        match self.username {
+            Some(ref s) => s.clone(),
+            None => match mode {
+                ParseMode::Markdown => format!("[{}](tg://user?id={})", self.get_first_last_name(), self.id),
+                ParseMode::HTML => format!("<a href=\"tg://user?id={}\">{}</a>", self.id, self.get_first_last_name()),
+            },
+        }
+    }
+
+    /// returns first and last name
+    pub fn get_first_last_name(&self) -> String {
+        let temp = format!("{} {}", self.first_name, match self.last_name {
+            Some(ref s) => s.clone(),
+            None => String::new(),
+        });
+        temp.trim().to_owned()
+    }
 }
 
 /// #Chat

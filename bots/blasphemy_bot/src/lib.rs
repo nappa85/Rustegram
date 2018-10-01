@@ -11,8 +11,9 @@ extern crate client_lib;
 extern crate toml;
 #[macro_use] extern crate serde_json;
 extern crate rand;
+extern crate parking_lot;
 
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use client_lib::{Bot, Telegram};
 use client_lib::entities::{Message, Request, ReplyMarkup};
@@ -23,6 +24,8 @@ use serde_json::value::Value as JsonValue;
 use toml::Value as TomlValue;
 
 use rand::{thread_rng, Rng};
+
+use parking_lot::RwLock;
 
 struct BlasphemyBot {
     api: Telegram,
@@ -59,8 +62,9 @@ impl Bot for BlasphemyBot {
                             Ok((String::from(chars.as_str()), words))
                         }
                         else {
-                            (self.session.read().map_err(|e| format!("Unable to read lock session: {:?}", e)))
-                                .and_then(|session| session.get(&BlasphemyBot::get_session_key(msg)).ok_or(format!("String \"{}\" doesn't contains a command", text)))
+                            let session = self.session.read();
+                            
+                            session.get(&BlasphemyBot::get_session_key(msg)).ok_or(format!("String \"{}\" doesn't contains a command", text))
                                 .and_then(|json| json.as_str().ok_or(format!("Session value mismatch: {:?}", json))
                                     .and_then(|value| {
                                         let mut words: Vec<String> = Vec::new();
@@ -127,16 +131,13 @@ impl BlasphemyBot {
         match request.get_message() {
             &Some(ref msg) => {
                 if args.len() == 0 {
-                    return (self.session.write().map_err(|e| format!("Unable to write lock session: {:?}", e)))
-                        .and_then(|mut session| {
-                            session.set(&BlasphemyBot::get_session_key(msg), json!("swearto"));
-
-                            self.api.send_message(
+                    let mut session = self.session.write();
+                    session.set(&BlasphemyBot::get_session_key(msg), json!("swearto"));
+                    return self.api.send_message(
                                 &msg.get_chat().get_id().to_string(),
                                 "Now insert a Subject for the swear",
                                 Some(&msg.get_id().to_string()), None, None,
-                                Some(ReplyMarkup::force_reply(true, Some(true))))
-                        });
+                                Some(ReplyMarkup::force_reply(true, Some(true))));
                 }
 
                 let mut text = String::new();
@@ -180,15 +181,15 @@ impl BlasphemyBot {
     }
 
     fn get_random(&self, key: &str) -> Result<String, String> {
-        (self.config.read().map_err(|e| format!("Unable to read config: {:?}", e)))
-            .and_then(|config| (config[key].as_array().ok_or(format!("{} is not an array", key)))
-                .and_then(|values| {
-                    let mut rng = thread_rng();
-                    let index = rng.gen_range::<usize>(0, values.len() - 1);
-                    values[index].as_str().ok_or(format!("{}[{}] is not a string", key, index))
-                })
-                .and_then(|s| Ok(s.to_owned()))
-            )
+        let config = self.config.read();
+        
+        config[key].as_array().ok_or(format!("{} is not an array", key))
+            .and_then(|values| {
+                let mut rng = thread_rng();
+                let index = rng.gen_range::<usize>(0, values.len() - 1);
+                values[index].as_str().ok_or(format!("{}[{}] is not a string", key, index))
+            })
+            .and_then(|s| Ok(s.to_owned()))
     }
 
     fn get_session_key(msg: &Message) -> String {
@@ -220,10 +221,13 @@ pub extern fn init_bot(ptr_config: *const Arc<RwLock<TomlValue>>, ptr_session: *
 
 #[cfg(test)]
 mod tests {
-    use super::{toml, serde_json, init_bot};
-    use super::client_lib::entities::Request;
-    use super::client_lib::session::Session;
-    use std::sync::{Arc, RwLock};
+    use toml;
+    use serde_json;
+    use client_lib::entities::Request;
+    use client_lib::session::Session;
+    use parking_lot::RwLock;
+    use std::sync::Arc;
+    use super::init_bot;
 
     #[test]
     fn it_works() {

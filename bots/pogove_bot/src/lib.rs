@@ -10,40 +10,47 @@
 extern crate client_lib;
 extern crate toml;
 extern crate serde_json;
+extern crate parking_lot;
 
-use std::sync::{Arc, RwLock};
-use std::process::Command;
+use std::sync::Arc;
 
 use client_lib::{Bot, Telegram};
-use client_lib::entities::{Request, Message, ParseMode, ReplyMarkup};
+use client_lib::entities::{Request, ParseMode, ReplyMarkup, InlineKeyboardButton};
 use client_lib::session::Session;
 
 use serde_json::value::Value as JsonValue;
 
 use toml::Value as TomlValue;
 
+use parking_lot::RwLock;
+
+
 struct PoGoVe {
     api: Telegram,
-    config: Arc<RwLock<TomlValue>>,
-    session: Arc<RwLock<Session>>,
+    _config: Arc<RwLock<TomlValue>>,
+    _session: Arc<RwLock<Session>>,
 }
 
 impl Bot for PoGoVe {
-    fn new(api: Telegram, config: &Arc<RwLock<TomlValue>>, session: &Arc<RwLock<Session>>) -> NoFlyBot {
+    fn new(api: Telegram, config: &Arc<RwLock<TomlValue>>, session: &Arc<RwLock<Session>>) -> PoGoVe {
         PoGoVe {
             api: api,
-            config: config.clone(),
-            session: session.clone(),
+            _config: config.clone(),
+            _session: session.clone(),
         }
     }
 
     fn parse_message(&self, request: &Request) -> Result<(String, Vec<String>), String> {
-        request.get_message().ok_or(String::from("Unsupported message type"))
-            .and_then(|ref msg| msg.get_new_chat_members().ok_or(String::from("Unsupported message type")))
-            .and_then(|_| Ok((String::from("greet"), Vec::new())))
+        match request.get_message() {
+            Some(ref msg) => match msg.get_new_chat_members() {
+                Some(_) => Ok((String::from("greet"), Vec::new())),
+                None => Err(String::from("Unsupported message type")),
+            },
+            None => Err(String::from("Unsupported message type")),
+        }
     }
 
-    fn dispatch(&self, method: &str, args: Vec<String>, request: &Request) -> Result<JsonValue, String> {
+    fn dispatch(&self, method: &str, _: Vec<String>, request: &Request) -> Result<JsonValue, String> {
         match method {
             "about" => self.about(request),
             "help" => self.help(request),
@@ -75,17 +82,22 @@ impl PoGoVe {
     }
 
     fn greet(&self, request: &Request) -> Result<JsonValue, String> {
-        request.get_message().ok_or(String::from("Unsupported message type"))
-            .and_then(|ref msg| msg.get_new_chat_members().ok_or(String::from("Unsupported message type"))
-                .and_then(|ref user| self.api.send_message(
+        match request.get_message() {
+            Some(ref msg) => match msg.get_new_chat_members() {
+                Some(ref users) => self.api.send_message(
                     &msg.get_chat().get_id().to_string(),
-                    &format!("Hello, {}, follow me into the white rabbit's hole", msg.get_from()),
-                    None, None, ParseMode::Markdown,
-                    ReplyMarkup::inline_keyboard(vec![vec![
+                    &format!("Hello,{}, follow me into the white rabbit's hole", users.iter().fold(String::new(), |acc, user| {
+                        acc + " " + &user.get_link(ParseMode::Markdown)
+                    })),
+                    None, None, Some(ParseMode::Markdown),
+                    Some(ReplyMarkup::inline_keyboard(vec![vec![
                         InlineKeyboardButton::new(String::from("Comincia"), None, None, None, Some(String::from("it")), None, None),
                         InlineKeyboardButton::new(String::from("Start"), None, None, None, Some(String::from("en")), None, None),
-                    ]])))
-            )
+                    ]]))),
+                None => Err(String::from("Unsupported message type")),
+            },
+            None => Err(String::from("Unsupported message type")),
+        }
     }
 }
 
@@ -105,7 +117,7 @@ pub extern fn init_bot(ptr_config: *const Arc<RwLock<TomlValue>>, ptr_session: *
         &*ptr_request
     };
 
-    Box::into_raw(Box::new(match Telegram::init_bot(PoGoVeBot::new, secret, &config, &session) {
+    Box::into_raw(Box::new(match Telegram::init_bot(PoGoVe::new, secret, &config, &session) {
         Ok(bot) => bot.parse(request),
         Err(e) => Err(format!("Error during bot init: {}", e)),
     }))

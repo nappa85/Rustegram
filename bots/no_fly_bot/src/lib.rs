@@ -10,8 +10,9 @@
 extern crate client_lib;
 extern crate toml;
 extern crate serde_json;
+extern crate parking_lot;
 
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use std::process::Command;
 
 use client_lib::{Bot, Telegram};
@@ -21,6 +22,9 @@ use client_lib::session::Session;
 use serde_json::value::Value as JsonValue;
 
 use toml::Value as TomlValue;
+
+use parking_lot::RwLock;
+
 
 struct NoFlyBot {
     api: Telegram,
@@ -46,38 +50,36 @@ impl Bot for NoFlyBot {
     }
 
     fn dispatch(&self, method: &str, args: Vec<String>, request: &Request) -> Result<JsonValue, String> {
-        match self.config.read() {
-            Ok(config) => match config["commands"].get(method) {
-                Some(exe) => match exe.as_str() {
-                    Some(path) => {
-                        let mut new_args: Vec<String> = Vec::new();
+        let config = self.config.read();
+        match config["commands"].get(method) {
+            Some(exe) => match exe.as_str() {
+                Some(path) => {
+                    let mut new_args: Vec<String> = Vec::new();
 
-                        let (chat_id, user_id) = match request.get_message() {
+                    let (chat_id, user_id) = match request.get_message() {
+                        &Some(ref msg) => (msg.get_chat().get_id().to_string(), msg.get_from().get_id().to_string()),
+                        &None => match request.get_edited_message() {
                             &Some(ref msg) => (msg.get_chat().get_id().to_string(), msg.get_from().get_id().to_string()),
-                            &None => match request.get_edited_message() {
-                                &Some(ref msg) => (msg.get_chat().get_id().to_string(), msg.get_from().get_id().to_string()),
-                                &None => {
-                                    return Err(String::from("Unsupported message type"));
-                                },
+                            &None => {
+                                return Err(String::from("Unsupported message type"));
                             },
-                        };
+                        },
+                    };
 
-                        new_args.push(chat_id.clone());
-                        new_args.push(user_id);
-                        for s in args {
-                            new_args.push(s);
-                        }
+                    new_args.push(chat_id.clone());
+                    new_args.push(user_id);
+                    for s in args {
+                        new_args.push(s);
+                    }
 
-                        match Command::new(path).args(&new_args).output() {
-                            Ok(out) => self.api.send_message(&chat_id, &String::from_utf8_lossy(&out.stdout), None, None, Some(ParseMode::Markdown), None),
-                            Err(e) => Err(format!("Error executing {}: {:?}", method, e)),
-                        }
-                    },
-                    None => Err(format!("Command {} incorrectly configured", method)),
+                    match Command::new(path).args(&new_args).output() {
+                        Ok(out) => self.api.send_message(&chat_id, &String::from_utf8_lossy(&out.stdout), None, None, Some(ParseMode::Markdown), None),
+                        Err(e) => Err(format!("Error executing {}: {:?}", method, e)),
+                    }
                 },
-                None => Err(format!("Command {} not configured", method)),
+                None => Err(format!("Command {} incorrectly configured", method)),
             },
-            Err(e) => Err(format!("Error read locking config: {:?}", e)),
+            None => Err(format!("Command {} not configured", method)),
         }
     }
 }

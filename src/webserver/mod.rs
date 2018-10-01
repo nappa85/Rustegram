@@ -1,9 +1,9 @@
 extern crate http;
 extern crate regex;
-extern crate serde_json;
-extern crate client_lib;
 
 mod registry;
+
+use serde_json;
 
 use futures::future::{IntoFuture, Future};
 use futures::Stream;
@@ -11,11 +11,11 @@ use futures::Stream;
 use hyper::{Method, StatusCode, Request, Response, Body};
 use hyper::service::Service;
 
+use client_lib::entities::Request as TelegramRequest;
+
 use self::http::Error as HttpError;
 
 use self::regex::Regex;
-
-use self::client_lib::entities::Request as TelegramRequest;
 
 use self::registry::PluginRegistry;
 

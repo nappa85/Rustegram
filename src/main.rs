@@ -14,6 +14,7 @@
 extern crate lazy_static;
 #[macro_use] extern crate serde_derive;
 extern crate serde;
+extern crate serde_json;
 extern crate toml;
 extern crate futures;
 extern crate hyper;
@@ -25,6 +26,7 @@ extern crate tokio_tcp;
 extern crate tokio_rustls;
 #[macro_use] extern crate log;
 extern crate env_logger;
+extern crate client_lib;
 
 mod webserver;
 
